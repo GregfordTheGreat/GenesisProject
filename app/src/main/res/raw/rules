@@ -1,0 +1,209 @@
+[RESOURCE_POWER]
+Type=Resource
+Name=Power
+Icon=resource_power
+
+[MATERIAL_RARE_EARTH]
+Type=Material
+Name=Rare Earth
+Icon=material_rare_earth
+
+[MATERIAL_CORE_ICE]
+Type=Material
+Name=Core Ice
+Icon=material_core_ice
+
+[MATERIAL_TITANIUM_ALLOY]
+Type=Material
+Name=Titanium Alloy
+Icon=material_tit_alloy
+
+[MATERIAL_OXYGEN]
+Type=Material
+Name=Oxygen
+Icon=material_oxygen
+
+[STATION]
+Type=Building
+Icon=depot
+Name=Station
+Mesh=building_station
+Grid0=1 1 1 1 1
+Grid1=1 1 1 1 1
+Grid2=1 1 1 1 1
+Grid3=0 0 0 2 0
+Grid4=0 0 0 1 0
+CostType0=[MATERIAL_RARE_EARTH]
+CostValue0=25000
+CostType0=[MATERIAL_CORE_ICE]
+CostValue0=5000
+ResourceType0=[RESOURCE_POWER]
+ResourceValue0=-10
+
+[BASE_CENTER]
+Type=Building
+Icon=depot
+Name=Base_Center
+Mesh=building_base_center
+Grid0=0 1 1 0
+Grid1=1 1 1 1
+Grid2=1 1 1 1
+Grid3=0 1 1 2
+CostType0=[MATERIAL_RARE_EARTH]
+CostValue0=1000
+ProdType0=[MATERIAL_CORE_ICE]
+ProdValue0=500
+ResourceType0=[RESOURCE_POWER]
+ResourceValue0=-100
+
+[RE_MINE]
+Type=Building
+Icon=building_re_mine
+Name=Rare Earth Mine
+Mesh=building_mine_re
+Grid1=1 1 1 1
+Grid0=1 1 1 1
+Grid2=1 1 1 1
+Grid3=1 1 1 1
+Grid4=2 0 0 0
+CostType0=[MATERIAL_RARE_EARTH]
+CostValue0=1000
+ProdType0=[MATERIAL_RARE_EARTH]
+ProdValue0=200
+ResourceType0=[RESOURCE_POWER]
+ResourceValue0=-5
+StorageCapacity0=[MATERIAL_RARE_EARTH,200]
+
+[MINE_CORE_ICE]
+Type=Building
+Icon=building_mine_coreice
+Name=Core Ice Mine
+Mesh=building_mine_coreice
+Grid0=1 1 1
+Grid1=1 1 1
+Grid2=1 1 1
+Grid3=1 1 1
+Grid4=0 2 0
+CostType0=[MATERIAL_RARE_EARTH]
+CostValue0=500
+ProdType0=[MATERIAL_CORE_ICE]
+ProdValue0=200
+ResourceType0=[RESOURCE_POWER]
+ResourceValue0=-10
+StorageCapacity0=[MATERIAL_CORE_ICE,200]
+
+[HE3_MINE]
+Type=Building
+Icon=building_he3
+Name=Helium3-Mine
+Mesh=building_he3
+Grid0=1 1 1 1 1 1
+Grid1=1 1 1 1 1 1
+CostType0=[MATERIAL_RARE_EARTH]
+CostValue0=1000
+ResourceType0=[RESOURCE_POWER]
+ResourceValue0=-20
+
+[SOLAR_PANELS]
+Type=Building
+Icon=building_solar_panels
+Name=Solarpanels
+Mesh=building_solar_panels
+Grid0=1 1 1 1
+Grid1=1 1 1 1
+Grid2=1 1 1 1
+CostType0=[MATERIAL_RARE_EARTH]
+CostValue0=200
+ResourceType0=[RESOURCE_POWER]
+ResourceValue0=10
+
+[FUSION_PLANT]
+Type=Building
+Icon=building_fusion_plant
+Name=Fusion Plant
+Mesh=building_fusion_plant
+Grid0=1 1 1 1 1
+Grid1=1 1 1 1 1
+Grid2=1 1 1 1 1
+Grid3=1 1 1 1 1
+Grid4=1 1 1 1 1
+CostType0=[MATERIAL_RARE_EARTH]
+CostValue0=20000
+ResourceType0=[RESOURCE_POWER]
+ResourceValue0=500
+
+[MELTER]
+Type=Building
+Icon=building_melter
+Name=Melter
+Mesh=building_melter
+Grid0=1 1 1 1 1 1
+Grid1=1 1 1 1 1 1
+Grid2=1 1 1 1 1 1
+Grid3=0 0 0 0 2 0
+CostType0=[MATERIAL_RARE_EARTH]
+CostValue0=100
+ResourceType0=[RESOURCE_POWER]
+ResourceValue0=-50
+ReqMatType0=[MATERIAL_RARE_EARTH]
+ReqMatValue0=100
+ReqMatType1=[MATERIAL_CORE_ICE]
+ReqMatValue1=10
+ManufactureType=[MATERIAL_TITANIUM_ALLOY]
+ManufactureValue=20
+StorageCapacity0=[MATERIAL_RARE_EARTH,200]
+StorageCapacity1=[MATERIAL_CORE_ICE,200]
+StorageCapacity2=[MATERIAL_TITANIUM_ALLOY,200]
+
+[PROD_OXYGEN]
+Type=Building
+Icon=building_prod_oxygen
+Name=Oxygen Lab
+Mesh=building_prod_oxygen
+Grid0=1 1 1 1
+Grid1=1 1 1 1
+Grid2=1 1 1 1
+Grid3=0 2 0 0
+CostType0=[MATERIAL_RARE_EARTH]
+CostValue0=1000
+ReqMatType1=[MATERIAL_CORE_ICE]
+ReqMatValue1=10
+ManufactureType=[MATERIAL_OXYGEN]
+ManufactureValue=25
+ResourceType0=[RESOURCE_POWER]
+ResourceValue0=-20
+StorageCapacity0=[MATERIAL_CORE_ICE,200]
+StorageCapacity1=[MATERIAL_OXYGEN,200]
+
+[SCIENCE_CENTER]
+Type=Building
+Icon=building_science_center
+Name=Science center
+Mesh=building_he3
+Grid0=1 1 1 1 1
+Grid1=1 1 1 1 1
+CostType0=[MATERIAL_RARE_EARTH]
+CostValue0=1000
+ResourceType0=[RESOURCE_POWER]
+ResourceValue0=-100
+
+[CENTER]
+Type=Building
+Icon=cube
+Name=Moo
+Mesh=cube
+Grid0=1 1 1
+Grid1=1 1 1
+Grid2=1 1 1
+Grid3=0 2 0
+CostType0=[MATERIAL_RARE_EARTH]
+CostValue0=10
+ResourceType0=[RESOURCE_POWER]
+ResourceValue0=-10
+
+[VEHICLE_TRANSPORT]
+Type=Vehicle
+Name=Transporter
+Mesh=building_station
+
+

@@ -1,0 +1,12 @@
+precision mediump float;
+
+// model-view projection matrix
+uniform mat4 uMVPMatrix;
+
+// position of the vertices
+attribute vec4 aShadowPosition;
+
+void main()
+{
+	gl_Position = uMVPMatrix * aShadowPosition;
+}

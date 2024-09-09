@@ -1,0 +1,139 @@
+precision mediump float;		// Set the default precision to medium. We don't need as high of a precision in the fragment shader.
+uniform sampler2D u_Texture;	// The input texture.
+uniform vec4 u_LightColor;
+uniform int u_TextureHandle;	// The input texture Handle
+uniform int u_IgnoreNegNormal;	//
+uniform sampler2D uShadowTexture;
+
+// This define the value to move one pixel left or right
+uniform float uxPixelOffset;
+// This define the value to move one pixel up or down
+uniform float uyPixelOffset;
+
+varying vec3 v_Position;		// Interpolated position for this fragment.
+varying vec4 v_Color;			// This is the color from the vertex shader interpolated across the triangle per fragment.
+varying vec3 v_Normal;			// Interpolated normal for this fragment.
+varying vec2 v_TexCoordinate;	// Interpolated texture coordinate per fragment.
+varying float v_Shinyness;
+varying vec3 v_LightPos;
+varying vec4 vShadowCoord;
+
+//Simple shadow mapping
+
+float calcBias()
+{
+	float bias;
+
+	vec3 n = normalize( v_Normal );
+	// Direction of the light (from the fragment to the light)
+    vec3 lightVector = normalize(v_LightPos - v_Position);
+	vec3 l = normalize( lightVector );
+
+	// Cosine of the angle between the normal and the light direction,
+	// clamped above 0
+	//  - light is at the vertical of the triangle -> 1
+	//  - light is perpendiular to the triangle -> 0
+	//  - light is behind the triangle -> 0
+	float cosTheta = clamp( dot( n,l ), 0.0, 1.0 );
+
+ 	bias = 0.005*tan(acos(cosTheta));
+	bias = clamp(bias, 0.0, 0.001);
+
+ 	return bias;
+}
+
+float lookup( vec2 offSet)
+{
+	vec4 shadowMapPosition = vShadowCoord / vShadowCoord.w;
+
+	float distanceFromLight = texture2D(uShadowTexture, (shadowMapPosition + vec4(offSet.x * uxPixelOffset, offSet.y * uyPixelOffset, 0.05, 0.0)).st ).z;
+
+	//add bias to reduce shadow acne (error margin)
+	float bias = calcBias();
+
+	float visibility = 1.0;
+	if(distanceFromLight < shadowMapPosition.z - bias)
+	{
+	  visibility = 0.5;
+	}
+	return visibility;
+}
+
+float shadowPCF()
+{
+	float shadow = 1.0;
+
+	for (float y = -1.5; y <= 1.5; y = y + 1.0) {
+		for (float x = -1.5; x <= 1.5; x = x + 1.0) {
+			shadow += lookup(vec2(x,y));
+		}
+	}
+
+	shadow /= 16.0;
+	shadow += 0.2;
+
+	return shadow;
+}
+
+float shadowSimple()
+{
+	vec4 shadowMapPosition = vShadowCoord / vShadowCoord.w;
+
+	float distanceFromLight = texture2D(uShadowTexture, shadowMapPosition.st ).z;
+
+	//add bias to reduce shadow acne (error margin)
+	float bias = calcBias();
+
+	float visibility = 1.0;
+	if(distanceFromLight < shadowMapPosition.z - bias)
+	{
+	  visibility = 0.5;
+	}
+	return visibility;
+}
+
+void main()						// The entry point for our fragment shader.
+{
+  vec4 final_color;
+  float shadow = 1.0;
+  if (vShadowCoord.w > 0.0)
+  {
+    shadow = shadowPCF();
+    shadow = (shadow * 0.8) + 0.2;
+  }
+
+  if(u_TextureHandle > 0)
+  {
+    vec4 texel = texture2D(u_Texture, v_TexCoordinate);
+    final_color = texel.w * texel + (1.0 - texel.w) * v_Color;
+  }
+  else
+  {
+    final_color = v_Color;
+  }
+
+  vec4 diffuseColor = u_LightColor;
+  vec4 specColor = vec4(0.9, 0.9, 0.9, 1.0);
+  vec4 ambiColor = vec4(0.2, 0.2, 0.2, 1.0);
+
+  vec3 lightVector = normalize(v_LightPos - v_Position);
+  float diffuseTerm = max(dot(v_Normal, lightVector), 0.1);
+//  diffuseTerm = clamp(diffuseTerm * 5.0, 0.0, 1.0); // sharpen the transformation effect between light and darkness
+
+  diffuseColor.xyz *= diffuseTerm;
+  final_color = final_color * (diffuseColor + ambiColor);
+
+  if(v_Shinyness >= 1.0)
+  {
+    vec3 N = normalize(v_Normal);
+    vec3 L = normalize(lightVector);
+    vec3 E = normalize(-v_Position);
+    vec3 R = reflect(-L, N);
+    float specular = pow(max(dot(R, E), 0.0), v_Shinyness);
+    final_color += specColor * specular;
+  }
+
+
+  final_color.xyz *= shadow;  // apply shadow to rgb values, alpha is unchanged
+  gl_FragColor = final_color;
+}

@@ -39,7 +39,7 @@ public abstract class HudDialogStandard extends HudDialog
 
     
     @Override
-    public boolean IsButtonClicked(int x, int y){
+    public boolean isButtonClicked(int x, int y){
     
         if(closeDialogDim.contains(x,y)){
             Log.d("Close","requested");

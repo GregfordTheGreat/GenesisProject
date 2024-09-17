@@ -37,8 +37,7 @@ CostType0=[MATERIAL_RARE_EARTH]
 CostValue0=25000
 CostType0=[MATERIAL_CORE_ICE]
 CostValue0=5000
-ResourceType0=[RESOURCE_POWER]
-ResourceValue0=-10
+ResourceCost0=[RESOURCE_POWER,-10]
 
 [BASE_CENTER]
 Type=Building
@@ -53,8 +52,7 @@ CostType0=[MATERIAL_RARE_EARTH]
 CostValue0=1000
 ProdType0=[MATERIAL_CORE_ICE]
 ProdValue0=500
-ResourceType0=[RESOURCE_POWER]
-ResourceValue0=-100
+ResourceCost0=[RESOURCE_POWER,-100]
 
 [RE_MINE]
 Type=Building
@@ -70,8 +68,7 @@ CostType0=[MATERIAL_RARE_EARTH]
 CostValue0=1000
 ProdType0=[MATERIAL_RARE_EARTH]
 ProdValue0=200
-ResourceType0=[RESOURCE_POWER]
-ResourceValue0=-5
+ResourceCost0=[RESOURCE_POWER,-5]
 StorageCapacity0=[MATERIAL_RARE_EARTH,200]
 
 [MINE_CORE_ICE]
@@ -88,8 +85,7 @@ CostType0=[MATERIAL_RARE_EARTH]
 CostValue0=500
 ProdType0=[MATERIAL_CORE_ICE]
 ProdValue0=200
-ResourceType0=[RESOURCE_POWER]
-ResourceValue0=-10
+ResourceCost0=[RESOURCE_POWER,-10]
 StorageCapacity0=[MATERIAL_CORE_ICE,200]
 
 [HE3_MINE]
@@ -101,8 +97,7 @@ Grid0=1 1 1 1 1 1
 Grid1=1 1 1 1 1 1
 CostType0=[MATERIAL_RARE_EARTH]
 CostValue0=1000
-ResourceType0=[RESOURCE_POWER]
-ResourceValue0=-20
+ResourceCost0=[RESOURCE_POWER,-20]
 
 [SOLAR_PANELS]
 Type=Building
@@ -114,8 +109,7 @@ Grid1=1 1 1 1
 Grid2=1 1 1 1
 CostType0=[MATERIAL_RARE_EARTH]
 CostValue0=200
-ResourceType0=[RESOURCE_POWER]
-ResourceValue0=10
+ResourceProduction0=[RESOURCE_POWER,10]
 
 [FUSION_PLANT]
 Type=Building
@@ -129,8 +123,7 @@ Grid3=1 1 1 1 1
 Grid4=1 1 1 1 1
 CostType0=[MATERIAL_RARE_EARTH]
 CostValue0=20000
-ResourceType0=[RESOURCE_POWER]
-ResourceValue0=500
+ResourceProduction0=[RESOURCE_POWER,500]
 
 [MELTER]
 Type=Building
@@ -143,8 +136,7 @@ Grid2=1 1 1 1 1 1
 Grid3=0 0 0 0 2 0
 CostType0=[MATERIAL_RARE_EARTH]
 CostValue0=100
-ResourceType0=[RESOURCE_POWER]
-ResourceValue0=-50
+ResourceCost0=[RESOURCE_POWER,-50]
 ReqMatType0=[MATERIAL_RARE_EARTH]
 ReqMatValue0=100
 ReqMatType1=[MATERIAL_CORE_ICE]
@@ -170,8 +162,7 @@ ReqMatType1=[MATERIAL_CORE_ICE]
 ReqMatValue1=10
 ManufactureType=[MATERIAL_OXYGEN]
 ManufactureValue=25
-ResourceType0=[RESOURCE_POWER]
-ResourceValue0=-20
+ResourceCost0=[RESOURCE_POWER,-20]
 StorageCapacity0=[MATERIAL_CORE_ICE,200]
 StorageCapacity1=[MATERIAL_OXYGEN,200]
 
@@ -184,8 +175,7 @@ Grid0=1 1 1 1 1
 Grid1=1 1 1 1 1
 CostType0=[MATERIAL_RARE_EARTH]
 CostValue0=1000
-ResourceType0=[RESOURCE_POWER]
-ResourceValue0=-100
+ResourceCost0=[RESOURCE_POWER,-100]
 
 [CENTER]
 Type=Building
@@ -198,8 +188,7 @@ Grid2=1 1 1
 Grid3=0 2 0
 CostType0=[MATERIAL_RARE_EARTH]
 CostValue0=10
-ResourceType0=[RESOURCE_POWER]
-ResourceValue0=-10
+ResourceCost0=[RESOURCE_POWER,-10]
 
 [VEHICLE_TRANSPORT]
 Type=Vehicle

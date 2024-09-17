@@ -13,6 +13,7 @@ import de.sereal.apps.genesisproject.rules.MaterialValue;
 import de.sereal.apps.genesisproject.rules.ResourceDef;
 import de.sereal.apps.genesisproject.util.Dimensions;
 import de.sereal.apps.genesisproject.util.MyConstants;
+import java.util.List;
 
 /**
  * Created by sereal on 08.08.2016.
@@ -42,7 +43,7 @@ public class HudDialogBuilding extends HudDialogStandard
   }
 
   @Override
-  public boolean IsButtonClicked(int x, int y)
+  public boolean isButtonClicked(int x, int y)
   {
     if(ConfirmButtonArea.contains(x, y))
     {
@@ -95,17 +96,26 @@ public class HudDialogBuilding extends HudDialogStandard
 
     // produced or required resources
     ResourceDef rDef;
-    for(MaterialValue mv : bDef.GetResourceValues())
-    {
+    for(MaterialValue mv : bDef.getResourceCosts()) {
       rDef = GameActivity.MyGameLogic.GameRules.GetResourceDefinition(mv.Material);
       float prod = mv.Value;
       icon = ParentView.GetIconByName(rDef.Icon, ParentView.IconSize, ParentView.IconSize);
-      if(icon != null)
-      {
+      if(icon != null) {
           canvas.drawBitmap(icon, DialogMetrics.left+2, DialogMetrics.top+yOffset, ParentView.normalImagePaint);
           canvas.drawText(decimalFormat.format(prod), DialogMetrics.left+128, DialogMetrics.top+yOffset+(ParentView.IconSize - ParentView.FontSize), darkTextPaint);
-        yOffset += ParentView.IconSize;
+          yOffset += ParentView.IconSize;
       }
+    }
+    
+    for(MaterialValue mv : bDef.getResourceProductions()) {
+        rDef = GameActivity.MyGameLogic.GameRules.GetResourceDefinition(mv.Material);
+        float prod = mv.Value;
+        icon = ParentView.GetIconByName(rDef.Icon, ParentView.IconSize, ParentView.IconSize);
+        if(icon != null) {
+            canvas.drawBitmap(icon, DialogMetrics.left+2, DialogMetrics.top+yOffset, ParentView.normalImagePaint);
+            canvas.drawText(decimalFormat.format(prod), DialogMetrics.left+128, DialogMetrics.top+yOffset+(ParentView.IconSize - ParentView.FontSize), darkTextPaint);
+            yOffset += ParentView.IconSize;
+        }
     }
 
     canvas.drawBitmap(ConfirmButtonImage, ConfirmButtonArea.left, ConfirmButtonArea.top, GameActivity.MyGameLogic.ReadyToBuild ? ParentView.normalImagePaint : ParentView.grayScaleImagePaint);

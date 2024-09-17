@@ -604,18 +604,73 @@ public class GLHudOverlayView extends ImageView
     invalidate();
   }
   
+  
+  public void drawStrokedTextAt(final String text, final RectF rect, final Canvas canvas, final TextAnchor anchor) {
+      drawText(text, rect, canvas, textPaint, textPaintStroke, anchor);
+  }
+  
   public void drawStrokedTextAt(final String text, final Canvas canvas, final float x, final float y) {
       canvas.drawText(text, x, y, textPaintStroke);
       canvas.drawText(text, x, y, textPaint);
   }
   
-  private Rect centerRect = new Rect();
+  private void drawText(final String text, final RectF rect, final Canvas canvas, final Paint paint, final Paint strokePaint, final TextAnchor anchor) {
+      float x;
+      float y;
+      if(anchor == TextAnchor.BOTTOM_LEFT) {
+          x = rect.left;
+          y = rect.bottom;
+      } else {
+          final Rect centerRect = new Rect();
+          paint.getTextBounds(text, 0, text.length(), centerRect);
+          
+          switch(anchor) {
+              default:
+              case MIDDLE_LEFT:
+              case TOP_LEFT:
+                  x = rect.left;
+                  break;
+                  
+              case BOTTOM_CENTER:
+              case MIDDLE_CENTER:
+              case TOP_CENTER:
+                  x = rect.left + ((rect.width() - centerRect.width()) / 2f);
+                  break;
+              
+              case BOTTOM_RIGHT:
+              case MIDDLE_RIGHT:
+              case TOP_RIGHT:
+                  x = rect.right - centerRect.width();
+                  break;
+          }
+          
+          switch(anchor) {
+              default:
+              case BOTTOM_RIGHT:
+              case BOTTOM_CENTER :
+                  y = rect.bottom;
+                  break;
+                  
+              case MIDDLE_LEFT :
+              case MIDDLE_CENTER:   
+              case MIDDLE_RIGHT:
+                  y = rect.bottom - ((rect.height() - centerRect.height()) / 2f);
+                  break;
+                  
+              case TOP_LEFT:
+              case TOP_CENTER:
+              case TOP_RIGHT:
+                  y = rect.top - centerRect.height();
+                  break;
+           }
+      }
+      
+      canvas.drawText(text, x, y, strokePaint);
+      canvas.drawText(text, x, y, paint);
+  }
+  
   public void drawCenteredAt(final String text, final RectF rect, final Canvas canvas) {
-      bigTextPaint.getTextBounds(text, 0, text.length(), centerRect);
-      float x = rect.left + (rect.width() / 2f) - (centerRect.width() / 2f);
-      float y = rect.bottom - (rect.height() / 2f) + (centerRect.height() / 2f);
-      canvas.drawText(text, x, y, bigTextPaintStroke);
-      canvas.drawText(text, x, y, bigTextPaint);
+      drawText(text, rect, canvas, bigTextPaint, bigTextPaintStroke, TextAnchor.MIDDLE_CENTER);
   }
 
   public static Path ComposeRoundedRectPath(RectF rect, float radius){

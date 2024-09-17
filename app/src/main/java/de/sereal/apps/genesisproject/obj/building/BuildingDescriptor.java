@@ -43,7 +43,8 @@ public class BuildingDescriptor
   protected HashMap<String, Float> ProducedGoods = new HashMap<>();
   protected MaterialConversion ManufacturingTable = new MaterialConversion();
   protected HashMap<String, Float> ProductionInputStorage = new HashMap<>();
-  protected HashMap<String, Float> ProducedResources = new HashMap<>();
+  protected HashMap<String, Float> resourceCosts = new HashMap<>();
+  protected HashMap<String, Float> resourceProductions = new HashMap<>();
   protected HashMap<String, Float> storageCapacities = new HashMap<>();
 
   public boolean TransportationInProgress = false;
@@ -70,7 +71,9 @@ public class BuildingDescriptor
   public void setBuildingGrid(int[][] buildingGrid) { this.buildingGrid = buildingGrid; }
 
   public HashMap<String, Float> getProductionInputStorage() { return ProductionInputStorage; }
-  public HashMap<String, Float> getProducedResources() { return ProducedResources; }
+  public HashMap<String, Float> getResourceCosts() { return resourceCosts; }
+  public HashMap<String, Float> getResourceProductions() { return resourceProductions; }
+  
   public void AddToProductionInputStorage(final String materialKey, final float value){
     if(!ProductionInputStorage.containsKey(materialKey))
       ProductionInputStorage.put(materialKey, value);
@@ -441,13 +444,19 @@ public class BuildingDescriptor
       if(!ProducedGoods.containsKey(mv.Material))
         ProducedGoods.put(mv.Material, 0.0f);
     }
-    for(MaterialValue mv : def.GetResourceValues())
-    {
-      ProducedResources.put(mv.Material, mv.Value);
+    
+    for(MaterialValue mv : def.getResourceCosts()) {
+        resourceCosts.put(mv.Material, mv.Value);
     }
+    
+    for(MaterialValue mv : def.getResourceProductions()) {
+        resourceProductions.put(mv.Material, mv.Value);
+    }
+    
     for(MaterialValue mv : def.getStorageCapacities()) {
         storageCapacities.put(mv.Material, mv.Value);
     }
+    
     ManufacturingTable = def.GetManufacturingTable();
   }
 

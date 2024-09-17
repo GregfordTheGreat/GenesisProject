@@ -35,7 +35,7 @@ public class HudDialogLandscaping extends HudDialogStandard
 
 
   @Override
-  public boolean IsButtonClicked(int x, int y)
+  public boolean isButtonClicked(int x, int y)
   {
     if(ButtonUpArea.contains(x, y))
     {

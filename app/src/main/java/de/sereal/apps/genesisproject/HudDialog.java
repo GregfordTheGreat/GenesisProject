@@ -19,7 +19,7 @@ public abstract class HudDialog
 
   public abstract void onDimensionChanged();
   public abstract void drawDetails(Canvas canvas);
-  public abstract boolean IsButtonClicked(int x, int y);
+  public abstract boolean isButtonClicked(int x, int y);
   
 
   public HudDialog(GLHudOverlayView parent)
@@ -43,7 +43,7 @@ public abstract class HudDialog
 
   public boolean IsClicked(int x, int y)
   {
-    if(IsButtonClicked(x, y))
+    if(isButtonClicked(x, y))
     {
       return true;
     }else{

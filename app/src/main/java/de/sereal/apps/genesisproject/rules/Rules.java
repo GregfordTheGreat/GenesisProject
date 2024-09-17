@@ -38,7 +38,8 @@ public class Rules {
             String costType = "";
             Vector<MaterialValue> constructionCosts = new Vector<>();
             Vector<MaterialValue> productionValues = new Vector<>();
-            Vector<MaterialValue> resourceValues = new Vector<>();
+            Vector<MaterialValue> resourceCosts = new Vector<>();
+            Vector<MaterialValue> resourceProductions = new Vector<>();
             Vector<MaterialValue> storageCapacities = new Vector<>();
             MaterialConversion manufacturingTable = new MaterialConversion();
 
@@ -70,7 +71,8 @@ public class Rules {
                             BuildingDef def = new BuildingDef(key, icon, mesh, name, selGrid);
                             def.SetConstructionCosts(constructionCosts);
                             def.SetProductionValues(productionValues);
-                            def.SetResourceValues(resourceValues);
+                            def.setResourceCosts(resourceCosts);
+                            def.setResourceProductions(resourceProductions);
                             def.SetManufacturingTable(manufacturingTable);
                             def.setStorageCapacities(storageCapacities);
                             buildingDefinitions.put(key, def);
@@ -78,7 +80,7 @@ public class Rules {
                             grid = new Vector<>();
                             constructionCosts = new Vector<>();
                             productionValues = new Vector<>();
-                            resourceValues = new Vector<>();
+                            resourceCosts = new Vector<>();
                             storageCapacities = new Vector<>();
                             manufacturingTable = new MaterialConversion();
                             break;
@@ -131,12 +133,14 @@ public class Rules {
                         if (MaterialDefinitions.containsKey(costType)) {
                             productionValues.addElement(new MaterialValue(costType, Long.parseLong(tokens[1])));
                         }
-                    } else if (tokens[0].startsWith("ResourceType")) {
-                        costType = tokens[1].substring(tokens[1].indexOf("[") + 1, tokens[1].indexOf("]"));
-                    } else if (tokens[0].startsWith("ResourceValue")) {
-                        if (ResourceDefinitions.containsKey(costType)) {
-                            resourceValues.addElement(new MaterialValue(costType, Long.parseLong(tokens[1])));
-                        }
+                    } else if (tokens[0].startsWith("ResourceCost")) {
+                        final String item = tokens[1].substring(tokens[1].indexOf("[") + 1, tokens[1].indexOf(","));
+                        final long value = Long.parseLong(tokens[1].substring(tokens[1].indexOf(",") + 1, tokens[1].indexOf("]")));
+                        resourceCosts.add(new MaterialValue(item, value));
+                    } else if (tokens[0].startsWith("ResourceProductions")) {
+                        final String item = tokens[1].substring(tokens[1].indexOf("[") + 1, tokens[1].indexOf(","));
+                        final long value = Long.parseLong(tokens[1].substring(tokens[1].indexOf(",") + 1, tokens[1].indexOf("]")));
+                        resourceProductions.add(new MaterialValue(item, value));
                     } else if (tokens[0].startsWith("ReqMatType")) {
                         costType = tokens[1].substring(tokens[1].indexOf("[") + 1, tokens[1].indexOf("]"));
                     } else if (tokens[0].startsWith("ReqMatValue")) {

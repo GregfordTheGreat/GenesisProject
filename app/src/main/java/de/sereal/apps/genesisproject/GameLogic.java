@@ -245,10 +245,15 @@ public class GameLogic
           {
             AvailableMaterials.put(mv.Material, AvailableMaterials.get(mv.Material) + mv.Value);
           }
-          for(MaterialValue mv : buildingDef.GetResourceValues())
-          {
-            AvailableResources.get(mv.Material).Value += mv.Value;
+          
+          for(MaterialValue mv : buildingDef.getResourceCosts()) {
+              AvailableResources.get(mv.Material).Value += mv.Value;
           }
+          
+          for(MaterialValue mv : buildingDef.getResourceProductions()) {
+              AvailableResources.get(mv.Material).Value += mv.Value;
+          }
+          
         }
       }
     }

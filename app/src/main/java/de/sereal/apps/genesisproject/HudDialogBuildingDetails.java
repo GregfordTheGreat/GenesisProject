@@ -32,6 +32,10 @@ import android.graphics.ColorMatrix;
 import java.util.Optional;
 import android.icu.text.CurrencyPluralInfo;
 import java.util.Map;
+import java.util.ArrayList;
+import java.util.stream.Collectors;
+import java.util.List;
+import de.sereal.apps.genesisproject.util.TextAnchor;
 
 /**
  * Created by sereal on 30.08.2016.
@@ -39,29 +43,27 @@ import java.util.Map;
 public class HudDialogBuildingDetails extends HudDialogStandard
 {
 
-  private Rect MainDialog;
   private Bitmap BuildingIcon;
   private DecimalFormat dc = new DecimalFormat("0.0");
   
   private RectF[] rectInputValues;
+  private RectF[] rectResources;
   private Paint paintInput = new Paint();
   
-  public HudDialogBuildingDetails(GLHudOverlayView parent)
-  {
+  public HudDialogBuildingDetails(GLHudOverlayView parent) {
     super(parent);
     setDialogDimensions((int)(ParentView.mMetrics.widthPixels * 0.5f), (int)(ParentView.mMetrics.heightPixels * 0.5f), true);
     
-    
-    
     Building building = GameActivity.MyGameLogic.SelectedBuilding;
     BuildingDef buildingDef = GameActivity.MyGameLogic.GameRules.getBuildingDefinition(building.buildingDefinitionKey);
+    BuildingIcon =  ParentView.GetIconByName(buildingDef.getIcon(), ParentView.IconSize, ParentView.IconSize);
 
     final BuildingDescriptor buildingDescriptor = building.getBuildingDescriptor();
     final Vector<MaterialValue> inputValues = buildingDescriptor.getInputMaterials();
     rectInputValues = new RectF[inputValues.size()];
     
     float y = DialogMetrics.top + (ParentView.IconSize + 10);
-    paintInput.setShader(new LinearGradient(0, y, 0, y + ParentView.IconSize + 10, Color.parseColor("#FFCCCCFF"), Color.parseColor("#FFAAAAFF"), Shader.TileMode.REPEAT));
+    paintInput.setShader(new LinearGradient(0, y, 0, y + ParentView.IconSize + 10, Color.parseColor("#FFAAAAFF"), Color.parseColor("#FF6666AA"), Shader.TileMode.REPEAT));
     for (int a=0; a<inputValues.size(); a++) {
         rectInputValues[a] = new RectF(
           DialogMetrics.left + 10 + ParentView.IconSize,
@@ -70,38 +72,36 @@ public class HudDialogBuildingDetails extends HudDialogStandard
           y + a * (ParentView.IconSize + 10) + ParentView.IconSize
         );
     }
-
-    int width = (int)((float)ParentView.mMetrics.widthPixels * 0.5f);
-    int height = (int)((float)ParentView.mMetrics.heightPixels * 0.5f);
-
-    MainDialog = new Rect((ParentView.mMetrics.widthPixels - width)/2, (ParentView.mMetrics.heightPixels - height)/2, (ParentView.mMetrics.widthPixels + width) / 2, (ParentView.mMetrics.heightPixels + height)/2);
     
-    BuildingIcon =  ParentView.GetIconByName(buildingDef.getIcon(), ParentView.IconSize, ParentView.IconSize);
+    float x = DialogMetrics.left + 10;
+    final int resourceCostAmounts = buildingDescriptor.getResourceCosts().size();
+    rectResources = new RectF[resourceCostAmounts];
+    for (int a=0; a<resourceCostAmounts; a++) {
+        rectResources[a] = new RectF(
+            x,
+            DialogMetrics.bottom - ParentView.IconSize - 10, 
+            x + (2 * ParentView.IconSize),
+            DialogMetrics.bottom - 10
+        );
+        x += (2 * ParentView.IconSize) + 10;
+    }
     
-    if(building instanceof Building_Mine_RareEarth)
-    {
+    if(building instanceof Building_Mine_RareEarth) {
       ParentView.PlaySoundEffect(R.raw.mining);
     }
   }
 
   @Override
-  protected void drawContent(Canvas canvas)
-  {
-    ResourceDef rDef;
-    MaterialDef mDef;
+  protected void drawContent(Canvas canvas) {
     float x, y;
 
-    Building building = GameActivity.MyGameLogic.SelectedBuilding;
-    BuildingDef buildingDef = GameActivity.MyGameLogic.GameRules.getBuildingDefinition(building.buildingDefinitionKey);
+    final Building building = GameActivity.MyGameLogic.SelectedBuilding;
+    final BuildingDef buildingDef = GameActivity.MyGameLogic.GameRules.getBuildingDefinition(building.buildingDefinitionKey);
     final BuildingDescriptor buildingDescriptor = building.getBuildingDescriptor();
 
-    canvas.drawText(buildingDef.getName(), MainDialog.left + 10 + ParentView.IconSize, MainDialog.top + (ParentView.FontSize + ParentView.IconSize)/2, darkTextPaint);
-    canvas.drawBitmap(BuildingIcon, MainDialog.left+10, MainDialog.top+10, ParentView.normalImagePaint);
+    canvas.drawText(buildingDef.getName(), DialogMetrics.left + 10 + ParentView.IconSize, DialogMetrics.top + (ParentView.FontSize + ParentView.IconSize)/2, darkTextPaint);
+    canvas.drawBitmap(BuildingIcon, DialogMetrics.left+10, DialogMetrics.top+10, ParentView.normalImagePaint);
     
-    ParentView.textPaint.setTextAlign(Paint.Align.LEFT);
-
-    x = MainDialog.left + 10 + ParentView.IconSize;
-    y = MainDialog.top + ParentView.IconSize;
     HashMap<String, Float> materials;
     if(building instanceof Building_Transport_Station) materials = GameActivity.MyGameLogic.GetAllAvailableMaterialsInStash();
     else materials = buildingDescriptor.getProductionInputStorage();
@@ -114,13 +114,11 @@ public class HudDialogBuildingDetails extends HudDialogStandard
        drawMaterial(canvas, materialKey, rectInputValues[a], current, capacity);
     }
     
-    final Map<String, Float> producedResources = buildingDescriptor.getProducedResources();
-    final String[] resourceKeys = producedResources.keySet().toArray(new String[0]);
-    for(int a=0; a<resourceKeys.length; a++) {
-        final String resourceKey = resourceKeys[a];
-        final float current = Optional.ofNullable(producedResources.get(resourceKey)).orElse(0f);
-        final float capacity = buildingDescriptor.getStorageCapacity(resourceKey);
-        drawResource(canvas, resourceKey, rectInputValues[a], current, capacity);
+    final Map<String, Float> resourceCosts = buildingDescriptor.getResourceCosts();
+    final List<String> resourceCostKeys = resourceCosts.keySet().stream().collect(Collectors.toList());
+    for (int a=0; a<resourceCostKeys.size(); a++) {
+       final String resourceKey = resourceCostKeys.get(a);
+        drawResource(canvas, resourceKey, rectResources[a], resourceCosts.get(resourceKey));
     }
     
     final HashMap<String, Float> producedGoods = buildingDescriptor.getProducedGoods();
@@ -133,8 +131,8 @@ public class HudDialogBuildingDetails extends HudDialogStandard
     Path path, path2;
     PathMeasure pathMeasure;
     ParentView.textPaint.setTextAlign(Paint.Align.RIGHT);
-    for(String materialKey : producedGoods.keySet())
-    {
+    
+    for(final String materialKey : producedGoods.keySet()) {
       progress = producedGoods.get(materialKey) / buildingDescriptor.getStorageCapacity(materialKey);
 
       rect = new RectF(x, y, x+ParentView.IconSize*2, y+ParentView.IconSize*2);
@@ -148,9 +146,7 @@ public class HudDialogBuildingDetails extends HudDialogStandard
       canvas.drawPath(path2, ParentView.progressStrokePaint);
       canvas.drawBitmap(ParentView.GetMaterialIcon(materialKey), x+ParentView.IconSize/2, y+ParentView.RoundedCornerIcon, ParentView.normalImagePaint);
 
-
       canvas.drawText(dc.format(producedGoods.get(materialKey)), x +ParentView.IconSize * 2 - 30.0f ,y+ParentView.IconSize * 2 - 30.0f, ParentView.textPaint);
-
 
       x += ParentView.IconSize * 2 + 10;
     }
@@ -161,9 +157,10 @@ public class HudDialogBuildingDetails extends HudDialogStandard
      drawWithIcon(canvas, mDef.Icon, rect, current, capacity);
   }
   
-  private void drawResource(final Canvas canvas, final String resourceKey, final RectF rect, final float current, float capacity) {
+  private void drawResource(final Canvas canvas, final String resourceKey, final RectF rect, final float current) {
       final ResourceDef rDef = GameActivity.MyGameLogic.GameRules.GetResourceDefinition(resourceKey);
-      drawWithIcon(canvas, rDef.Icon, rect, current, capacity);
+      canvas.drawBitmap(ParentView.GetIconByName(rDef.Icon, ParentView.IconSize, ParentView.IconSize), rect.left, rect.bottom - ParentView.IconSize, ParentView.normalImagePaint);
+      ParentView.drawStrokedTextAt(dc.format(current), rect, canvas, TextAnchor.MIDDLE_RIGHT);
   }
   
   private void drawWithIcon(final Canvas canvas, final String icon, final RectF rect, final float current, float capacity) {
@@ -175,9 +172,8 @@ public class HudDialogBuildingDetails extends HudDialogStandard
   }
   
   
-  public boolean IsButtonClick(int x, int y)
-  {
-      return super.IsButtonClicked(x, y);
+  public boolean isButtonClick(int x, int y) {
+      return super.isButtonClicked(x, y);
   }
 
 }

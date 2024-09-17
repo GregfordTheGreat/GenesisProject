@@ -86,7 +86,7 @@ public class HudDialogBuildOptions extends HudDialog
           initialBuildingChoice = a;
       }
 
-      if(IsButtonClicked(x, y))
+      if(isButtonClicked(x, y))
       {
         return true;
       }else{
@@ -136,7 +136,7 @@ public class HudDialogBuildOptions extends HudDialog
   }
 
   @Override
-  public boolean IsButtonClicked(int x, int y)
+  public boolean isButtonClicked(int x, int y)
   {
     if(CloseButtonArea.contains(x,y))
     {

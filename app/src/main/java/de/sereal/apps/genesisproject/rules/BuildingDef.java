@@ -12,7 +12,8 @@ public class BuildingDef
 	private String Name;
 	private Vector<MaterialValue> ConstructionsCosts = new Vector<>();
 	private Vector<MaterialValue> ProductionValues = new Vector<>();
-	private Vector<MaterialValue> ResourceValues = new Vector<>();
+	private Vector<MaterialValue> resourceCosts = new Vector<>();
+  private Vector<MaterialValue> resourceProductions = new Vector<>();
   private Vector<MaterialValue> storageCapacities = new Vector<>();
 	private MaterialConversion ManufacturingTable = new MaterialConversion();
 
@@ -60,12 +61,16 @@ public class BuildingDef
 	}
 	public Vector<MaterialValue> GetProductionValues(){ return ProductionValues; }
 
-	public void SetResourceValues(Vector<MaterialValue> resourceValues)
-	{
-		ResourceValues = resourceValues;
+	public void setResourceCosts(Vector<MaterialValue> resourceValues) {
+		resourceCosts = resourceValues;
 	}
-	public Vector<MaterialValue> GetResourceValues(){ return ResourceValues; }
+	public Vector<MaterialValue> getResourceCosts() { return resourceCosts; }
 
+  public void setResourceProductions(Vector<MaterialValue> resourceValues) {
+      resourceProductions = resourceValues;
+  }
+  public Vector<MaterialValue> getResourceProductions(){ return resourceProductions; }
+  
 	public void SetManufacturingTable(MaterialConversion manufacturingTable)
 	{
 		ManufacturingTable = manufacturingTable;

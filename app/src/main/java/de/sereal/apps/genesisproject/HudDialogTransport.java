@@ -39,7 +39,7 @@ public class HudDialogTransport extends HudDialogStandard
 
 
   @Override
-  public boolean IsButtonClicked(int x, int y)
+  public boolean isButtonClicked(int x, int y)
   {
     if(ConfirmButtonArea.contains(x, y))
     {

@@ -14,16 +14,18 @@ public class PlanetDescriptor
 {
   private String name;
   private int[][] heightmap;
-  private int widthSegments = 100;
-  private int heightSegments = 100;
+  private int widthSegments;
+  private int heightSegments;
   private RoadMap roadMap;
   private byte[][] Resource_RareEarth;
   private byte[][] Resource_CoreIce;
   private CopyOnWriteArrayList<BuildingDescriptor> Buildings = new CopyOnWriteArrayList<>();
   private boolean isActive = false;
 
-  public PlanetDescriptor(final String name) {
+  public PlanetDescriptor(final String name, final int widthSegments, final int heightSegments) {
     this.name = name;
+    this.widthSegments = widthSegments;
+    this.heightSegments = heightSegments;
   }
 
   public Vector3D getPosition(int w, int h)

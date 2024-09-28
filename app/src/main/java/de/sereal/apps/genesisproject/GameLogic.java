@@ -129,12 +129,12 @@ public class GameLogic
 
   public void SetShowConnectionsPoints(boolean value)
   {
-    planetSurface.ShowConnectionPoints = value;
+    planetSurface.showConnectionPoints = value;
   }
 
-  public void SetPickType(int type)
+  public void setPickType(int type)
   {
-    planetSurface.SetPickType(type);
+    planetSurface.setPickType(type);
   }
 
   public void SetResourceMap(MyConstants.ResourceMapStyle style)

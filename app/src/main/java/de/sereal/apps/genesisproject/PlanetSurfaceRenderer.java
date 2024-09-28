@@ -211,7 +211,6 @@ public class PlanetSurfaceRenderer extends Thread implements GLSurfaceView.Rende
   @Override
   public void OnScale(float scale)
   {
-    Log.d("PlanetSurfaceRenderer","Updating Zoom??"+scale);
     cameraPlanetSurface.setZoom(12.0f / scale);
   }
 
@@ -315,7 +314,6 @@ public class PlanetSurfaceRenderer extends Thread implements GLSurfaceView.Rende
 
     // create a framebuffer object
     GLES20.glGenFramebuffers(1, fboId, 0);
-    Log.d("FrameBuffer", fboId[0]+"");
 
     // create render buffer and bind 16-bit depth buffer
     GLES20.glGenRenderbuffers(1, depthTextureId, 0);

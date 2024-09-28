@@ -330,7 +330,7 @@ public class GLHudOverlayView extends ImageView
     GameActivity.MyGameLogic.SetMouseMoveAction(GameLogic.MOUSE_MOVE);
     GameActivity.MyGameLogic.SetSelectionGrid( null );
     GameActivity.MyGameLogic.SetShowConnectionsPoints(false);
-    GameActivity.MyGameLogic.SetPickType(1);
+    GameActivity.MyGameLogic.setPickType(1);
     GameActivity.MyGameLogic.SetResourceMap(MyConstants.ResourceMapStyle.NORMAL);
     activeGameMenu = INACTIVE;
 
@@ -374,7 +374,7 @@ public class GLHudOverlayView extends ImageView
                 GameActivity.MyGameLogic.SetResourceMap(MyConstants.ResourceMapStyle.NORMAL);
 
                 if(activeGameMenu!=INACTIVE)
-                  GameActivity.MyGameLogic.SetPickType(0);
+                  GameActivity.MyGameLogic.setPickType(0);
 
                 switch(activeGameMenu)
                 {
@@ -517,7 +517,7 @@ public class GLHudOverlayView extends ImageView
                 GameActivity.MyGameLogic.SetResourceMap(MyConstants.ResourceMapStyle.NORMAL);
 
                 if(activeAltGameMenu != INACTIVE)
-                  GameActivity.MyGameLogic.SetPickType(0);
+                  GameActivity.MyGameLogic.setPickType(0);
 
                 switch(activeAltGameMenu)
                 {

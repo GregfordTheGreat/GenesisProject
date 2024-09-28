@@ -502,7 +502,7 @@ public class GameActivity extends Activity implements OnTouchListener
         oos.writeBytes(name);
 
         final int widthSegments = pd.getWidthSegments();
-        final int heightSegments = pd.getWidthSegments();
+        final int heightSegments = pd.getHeightSegments();
         oos.writeShort(widthSegments);
         oos.writeShort(heightSegments);
 
@@ -724,9 +724,10 @@ public class GameActivity extends Activity implements OnTouchListener
             bytes = readNBytes(ois, ois.readShort());
             planetName = new String(bytes);
 
-            final PlanetDescriptor pd = new PlanetDescriptor(planetName);
+            
             final int width = ois.readShort();
             final int height = ois.readShort();
+            final PlanetDescriptor pd = new PlanetDescriptor(planetName, width, height);
             final int fieldSize = width * height;
             final int[][] heightmap = new int[height+1][width+1];
 
@@ -744,8 +745,7 @@ public class GameActivity extends Activity implements OnTouchListener
 
             int buildingCount = ois.readShort();
 //            Log.d("gonna load", buildingCount+" buildings");
-            while(buildingCount-- >  0)
-            {
+            while(buildingCount-- >  0) {
               final String buildingKey = ois.readUTF();
 
               final BuildingDescriptor bd = MyGameLogic.getBuildingDescriptorByKey(buildingKey);
@@ -807,10 +807,10 @@ public class GameActivity extends Activity implements OnTouchListener
     // start new game at 09:00 am
     MyGameLogic.SetMinuteOfTheDay(540.0f);
 
-    final int widthSegments = 100;
-    final int heightSegments = 100;
+    final int widthSegments = 200;
+    final int heightSegments = 200;
     final String planetName = "Terra1";
-    final PlanetDescriptor planetDescriptor = new PlanetDescriptor(planetName);
+    final PlanetDescriptor planetDescriptor = new PlanetDescriptor(planetName, widthSegments, heightSegments);
 
     planetDescriptor.setHeightmap(TerrainGen.GeneratePerlin(widthSegments + 1, heightSegments + 1));
     planetDescriptor.setResource_RareEarth(TerrainGen.GeneratePerlinByteMap(widthSegments, heightSegments));

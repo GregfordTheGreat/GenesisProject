@@ -48,6 +48,9 @@ import de.sereal.apps.genesisproject.util.TerrainGen;
 import de.sereal.apps.genesisproject.util.TextureHandler;
 import de.sereal.apps.genesisproject.util.Vector3D;
 import de.sereal.apps.genesisproject.obj.building.*;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.ArrayList;
 
 /**
  * Created by sereal on 01.08.2016.
@@ -58,45 +61,49 @@ public class PlanetSurface {
 
     // set by planetdescriptor
     private int[][] HeightMap;
-    private int WidthSegments;
-    private int HeightSegments;
-    private int WidthSegmentVertices;
+    private int worldWidthSegments;
+    private int worldHeightSegments;
     private PlanetDescriptor planetDescriptor;
 
     private final int PickUpdateRange = 5;
     private float segmentSize = MyConstants.TILE_SIZE;
     private float segmentHeightStep = MyConstants.HEIGHT_STEP;
 
-
-    private FloatBuffer vertexBuffer;
-    private FloatBuffer texCoordBuffer;
-    private FloatBuffer texCoordBufferMap;
-    private FloatBuffer colorBuffer;
-    private FloatBuffer shinyBuffer;
-    private ShortBuffer indexBufferWire;
-    private FloatBuffer normalBuffer;
-    private int numberOfIndicesWire = 0;
-
-    private ShortBuffer indexBufferPositiveSelection;
-    private int numberPositiveSelectedIndices = 0;
-    private ShortBuffer indexBufferNegativeSelection;
-    private int numberNegativeSelectedIndices = 0;
-    float[] colorWire = {0.0f, 0.0f, 0.0f, 0.2f};
-    float[] colorWireDark = {0.0f, 0.0f, 0.0f, 0.5f};
-    float[] colorPositiveSelection = {1.0f, 1.0f, 1.0f, 1.0f};
-    float[] colorNegativeSelection = {1.0f, 0.0f, 0.0f, 1.0f};
-    float[] colorConnectionPoints = {0.0f, 0.0f, 1.0f, 1.0f};
-
-    private ShortBuffer indexBufferConnectionPoints;
-    private int numberConnectionPointsIndices = 0;
-    public boolean ShowConnectionPoints = false;
-    private int PickType = 1;
-
-
-    private Vector<Tile> squares = new Vector<>();
+    private final static int CHUNK_SEGMENTS_WIDTH = 100;
+    private final static int CHUNK_SEGMENTS_HEIGHT = 100;
+    private final static Color4f normalColor = new Color4f(0.5f, 0.85f, 0.5f);
+    private final static Color4f lightColor = new Color4f(normalColor.r + 0.05f, normalColor.g + 0.05f, normalColor.b + 0.05f);
+    private final static Color4f darkColor = new Color4f(normalColor.r - 0.05f, normalColor.g - 0.05f, normalColor.b - 0.05f);
+    private final static Color4f seaColor = new Color4f(0.5f, 0.5f, 0.8f);
+    
+    private List<Chunk> chunks = new ArrayList<>();
+    private Map<Chunk, FloatBuffer> verticesByChunk = new HashMap<>();
+    private Map<Chunk, FloatBuffer> normalsByChunk = new HashMap<>();
+    private Map<Chunk, FloatBuffer> colorsByChunk = new HashMap<>();
+    private Map<Chunk, FloatBuffer> texCoordsByChunk = new HashMap<>();
+    private Map<Chunk, FloatBuffer> texCoordMapByChunk = new HashMap<>();
+    private Map<Chunk, FloatBuffer> shinyByChunk = new HashMap<>();
+    private Map<Chunk, List<Tile>> squaresOfWorld = new HashMap<>();
+    private Map<Chunk, SparseArray<Indices>> vboIndicesByChunkByTextureId = new HashMap<>();
+    private Map<Chunk, ShortBuffer> indicesWireByChunk = new HashMap<>();
+    private Map<Chunk, ShortBuffer> indicesConnectionPointsByChunk = new HashMap<>();
+    private Map<Chunk, ShortBuffer> indicesPositiveSelectionByChunk = new HashMap<>();
+    private Map<Chunk, ShortBuffer> indicesNegativeSelectionByChunk = new HashMap<>();
+    private Map<Chunk, Integer> numberOfIndicesByChunk = new HashMap<>();
+    private Map<Chunk, Integer> numberOfIndicesPositiveByChunk = new HashMap<>();
+    private Map<Chunk, Integer> numberOfIndicesNegativeByChunk = new HashMap<>();
+    private Map<Chunk, Integer> numberOfIndicesConnectionByChunk = new HashMap<>();
     private Vector<Integer> keys = new Vector<>();
-    private SparseArray<Indices> VBOindicesByTextureId = new SparseArray<>();
 
+    private float[] colorWire = {0.0f, 0.0f, 0.0f, 0.2f};
+    private float[] colorWireDark = {0.0f, 0.0f, 0.0f, 0.5f};
+    private float[] colorPositiveSelection = {1.0f, 1.0f, 1.0f, 1.0f};
+    private float[] colorNegativeSelection = {1.0f, 0.0f, 0.0f, 1.0f};
+    private float[] colorConnectionPoints = {0.0f, 0.0f, 1.0f, 1.0f};
+
+    public boolean showConnectionPoints = false;
+    private int pickType = 1;
+    // Log
     // picking
     private int FirstPickResultW = 0;
     private int FirstPickResultH = 0;
@@ -116,22 +123,22 @@ public class PlanetSurface {
         this.context = context;
         this.planetSurfaceRenderer = renderer;
         GameActivity.MyGameLogic.SetPlanetSurface(this);
-
+        
         prepareTexturesSet();
     }
 
     public void setPlanetDescription(final PlanetDescriptor planetDescriptor) {
         this.planetDescriptor = planetDescriptor;
         this.HeightMap = planetDescriptor.getHeightmap();
-        this.WidthSegments = planetDescriptor.getWidthSegments();
-        this.HeightSegments = planetDescriptor.getHeightSegments();
-        this.WidthSegmentVertices = WidthSegments * MyConstants.NumVerticesPerQuad;
+        this.worldWidthSegments = planetDescriptor.getWidthSegments();
+        this.worldHeightSegments = planetDescriptor.getHeightSegments();
 
-        PrepareBuffers();
+        prepareChunks();
+        prepareBuffers();
 
         Log.d("planetSurface", "getRoadmap" + planetDescriptor.getRoadMap());
         if (planetDescriptor.getRoadMap() == null) {
-            planetDescriptor.setRoadMap(new RoadMap(WidthSegments, HeightSegments));
+            planetDescriptor.setRoadMap(new RoadMap(worldWidthSegments, worldHeightSegments));
         }
 
         for (final BuildingDescriptor bd : planetDescriptor.getBuildings()) {
@@ -139,7 +146,6 @@ public class PlanetSurface {
 
             final VehicleDescriptor transportVehicle = bd.getTransportVehicle();
             if (transportVehicle != null) {
-                Log.d("setTrans", transportVehicle.position.x + "//" + transportVehicle.position.y + "//" + transportVehicle.position.z);
                 transportVehicle.vehicle = new VehicleTransport(context, segmentSize);
                 transportVehicle.vehicle.setPosition(transportVehicle.position.x, transportVehicle.position.y, transportVehicle.position.z);
                 Vehicles.add(transportVehicle.vehicle);
@@ -147,7 +153,6 @@ public class PlanetSurface {
 
             final VehicleDescriptor deliveryVehicle = bd.getDeliveryVehicle();
             if (deliveryVehicle != null) {
-                Log.d("setTrans2", deliveryVehicle.position.x + "//" + deliveryVehicle.position.y + "//" + deliveryVehicle.position.z);
                 deliveryVehicle.vehicle = new VehicleTransport(context, segmentSize);
                 deliveryVehicle.vehicle.setPosition(deliveryVehicle.position.x, deliveryVehicle.position.y, deliveryVehicle.position.z);
                 Vehicles.add(deliveryVehicle.vehicle);
@@ -177,266 +182,299 @@ public class PlanetSurface {
         keys.add(R.raw.street3w);
         keys.add(R.raw.street4);
     }
+    
+    private void prepareChunks() {
+        int x = 0;
+        for (int xi=0; xi < worldWidthSegments; xi += CHUNK_SEGMENTS_WIDTH) {
+            int y = 0;
+            for (int yi=0; yi < worldHeightSegments; yi += CHUNK_SEGMENTS_HEIGHT) {
+                final int w = Math.min(worldWidthSegments - xi, CHUNK_SEGMENTS_WIDTH);
+                final int h = Math.min(worldHeightSegments - yi, CHUNK_SEGMENTS_HEIGHT);
+                final Chunk chunk = new Chunk(x, y, w, h);
+                chunks.add(chunk);
+                Log.d("ADDCHUNK", x+"//"+y + "  " + w + "##"+h);
+                y++;
+            }
+            x++;
+        }
+    }
 
-    private void PrepareBuffers() {
-        int vertexCount = HeightSegments * WidthSegments * 6;
-
-        // stuff for every vertex
-        vertexBuffer = ByteBuffer.allocateDirect(vertexCount * MyConstants.NumFloatPerVertex * MyConstants.NumBytesPerFloat).order(ByteOrder.nativeOrder()).asFloatBuffer();
-        normalBuffer = ByteBuffer.allocateDirect(vertexCount * MyConstants.NumFloatPerNormal * MyConstants.NumBytesPerFloat).order(ByteOrder.nativeOrder()).asFloatBuffer();
-        colorBuffer = ByteBuffer.allocateDirect(vertexCount * MyConstants.NumFloatPerColor * MyConstants.NumBytesPerFloat).order(ByteOrder.nativeOrder()).asFloatBuffer();
-        texCoordBuffer = ByteBuffer.allocateDirect(vertexCount * MyConstants.NumFloatPerTexCoord * MyConstants.NumBytesPerFloat).order(ByteOrder.nativeOrder()).asFloatBuffer();
-        texCoordBufferMap = ByteBuffer.allocateDirect(vertexCount * MyConstants.NumFloatPerTexCoord * MyConstants.NumBytesPerFloat).order(ByteOrder.nativeOrder()).asFloatBuffer();
-        shinyBuffer = ByteBuffer.allocateDirect(vertexCount * MyConstants.NumBytesPerFloat).order(ByteOrder.nativeOrder()).asFloatBuffer();
-
-        //
-        indexBufferWire = ByteBuffer.allocateDirect(HeightSegments * WidthSegments * 8 * MyConstants.NumBytesPerShort).order(ByteOrder.nativeOrder()).asShortBuffer();
-
-        // max 100 quads 10 x 10
-        indexBufferPositiveSelection = ByteBuffer.allocateDirect(100 * 8 * MyConstants.NumBytesPerShort).order(ByteOrder.nativeOrder()).asShortBuffer();
-        indexBufferPositiveSelection.position(0);
-        indexBufferNegativeSelection = ByteBuffer.allocateDirect(100 * 8 * MyConstants.NumBytesPerShort).order(ByteOrder.nativeOrder()).asShortBuffer();
-        indexBufferNegativeSelection.position(0);
-        // TODO: limited to 100 Connectionspoints!!
-        indexBufferConnectionPoints = ByteBuffer.allocateDirect(100 * 8 * MyConstants.NumBytesPerShort).order(ByteOrder.nativeOrder()).asShortBuffer();
-        indexBufferConnectionPoints.position(0);
-
-        // color
-        // barren: 7A 54 30 = (0.478f, 0,329f, 0.188f)
+    private void prepareBuffers() {
+        
+        for(final Chunk chunk : chunks) {
+            final int chunkVertexCount = chunk.getWidth() * chunk.getHeight() * MyConstants.NumVerticesPerQuad;
+            final FloatBuffer vertexBuffer = ByteBuffer.allocateDirect(chunkVertexCount * MyConstants.NumFloatPerVertex * MyConstants.NumBytesPerFloat).order(ByteOrder.nativeOrder()).asFloatBuffer();
+            verticesByChunk.put(chunk, vertexBuffer);
+            
+            final FloatBuffer normalBuffer = ByteBuffer.allocateDirect(chunkVertexCount * MyConstants.NumFloatPerNormal * MyConstants.NumBytesPerFloat).order(ByteOrder.nativeOrder()).asFloatBuffer();
+            normalsByChunk.put(chunk, normalBuffer);
+            
+            final FloatBuffer colorBuffer = ByteBuffer.allocateDirect(chunkVertexCount * MyConstants.NumFloatPerColor * MyConstants.NumBytesPerFloat).order(ByteOrder.nativeOrder()).asFloatBuffer();
+            colorsByChunk.put(chunk, colorBuffer);
+            
+            final FloatBuffer texCoordBuffer = ByteBuffer.allocateDirect(chunkVertexCount * MyConstants.NumFloatPerTexCoord * MyConstants.NumBytesPerFloat).order(ByteOrder.nativeOrder()).asFloatBuffer();
+            texCoordsByChunk.put(chunk, texCoordBuffer);
+            
+            final FloatBuffer texCoordBufferMap = ByteBuffer.allocateDirect(chunkVertexCount * MyConstants.NumFloatPerTexCoord * MyConstants.NumBytesPerFloat).order(ByteOrder.nativeOrder()).asFloatBuffer();
+            texCoordMapByChunk.put(chunk, texCoordBufferMap);
+            
+            final FloatBuffer shinyBuffer = ByteBuffer.allocateDirect(chunkVertexCount * MyConstants.NumBytesPerFloat).order(ByteOrder.nativeOrder()).asFloatBuffer();
+            shinyByChunk.put(chunk, shinyBuffer);
+            
+            final ShortBuffer indexBufferWire = ByteBuffer.allocateDirect(chunk.getWidth() * chunk.getHeight() * 8 * MyConstants.NumBytesPerShort).order(ByteOrder.nativeOrder()).asShortBuffer();
+            indicesWireByChunk.put(chunk, indexBufferWire);
+            
+            // max 100 quads 10 x 10
+            final ShortBuffer indexBufferPositiveSelection = ByteBuffer.allocateDirect(100 * 8 * MyConstants.NumBytesPerShort).order(ByteOrder.nativeOrder()).asShortBuffer();
+            indexBufferPositiveSelection.position(0);
+            indicesPositiveSelectionByChunk.put(chunk, indexBufferPositiveSelection);
+            
+            final ShortBuffer indexBufferNegativeSelection = ByteBuffer.allocateDirect(100 * 8 * MyConstants.NumBytesPerShort).order(ByteOrder.nativeOrder()).asShortBuffer();
+            indexBufferNegativeSelection.position(0);
+            indicesNegativeSelectionByChunk.put(chunk, indexBufferNegativeSelection);
+            
+            // TODO: limited to 100 Connectionspoints!!
+            final ShortBuffer indexBufferConnectionPoints = ByteBuffer.allocateDirect(100 * 8 * MyConstants.NumBytesPerShort).order(ByteOrder.nativeOrder()).asShortBuffer();
+            indexBufferConnectionPoints.position(0);
+            indicesConnectionPointsByChunk.put(chunk, indexBufferConnectionPoints);
+            
+            numberOfIndicesByChunk.put(chunk, 0);
+            numberOfIndicesPositiveByChunk.put(chunk, 0);
+            numberOfIndicesNegativeByChunk.put(chunk, 0);
+            numberOfIndicesConnectionByChunk.put(chunk, 0);
+            vboIndicesByChunkByTextureId.put(chunk, new SparseArray<Indices>());
+        }
     }
 
     private void BuildSurfaceFromHeightMap() {
-        squares.clear();
-
-        float halfHeight = segmentSize * (float) (HeightSegments) / 2.0f;
-        float halfWidth = segmentSize * (float) (WidthSegments) / 2.0f;
-
+        final float halfWorldHeight = segmentSize * (float) (worldHeightSegments) / 2.0f;
+        final float halfWidth = segmentSize * (float) (worldWidthSegments) / 2.0f;
+        
         float x, z;
         int[] hm = new int[4];
-        Tile square;
+        
+        for (final Chunk chunk : chunks) {
+            final List<Tile> squareList = new ArrayList<>();
+            squaresOfWorld.put(chunk, squareList);
 
-        // green = 0.5f, 0.85f, 0.5f
-//    Color4f normalColor = new Color4f(0.478f, 0.329f, 0.188f);
-//    Color4f normalColor = new Color4f(0.5f, 0.439f, 0.439f);
-        Color4f normalColor = new Color4f(0.5f, 0.85f, 0.5f);
-        Color4f lightColor = new Color4f(normalColor.r + 0.05f, normalColor.g + 0.05f, normalColor.b + 0.05f);
-        Color4f darkColor = new Color4f(normalColor.r - 0.05f, normalColor.g - 0.05f, normalColor.b - 0.05f);
-        Color4f seaColor = new Color4f(0.5f, 0.5f, 0.8f);
+            for (int h = 0; h < chunk.getHeight(); h++) {
+                for (int w = 0; w < chunk.getWidth(); w++) {
+                    int xi = chunk.getX() * CHUNK_SEGMENTS_WIDTH + w;
+                    int yi = chunk.getY() * CHUNK_SEGMENTS_HEIGHT + h;
+                    
+                    hm[0] = HeightMap[yi][xi];
+                    hm[1] = HeightMap[yi + 1][xi];
+                    hm[2] = HeightMap[yi + 1][xi + 1];
+                    hm[3] = HeightMap[yi][xi + 1];
 
-        for (int h = 0; h < HeightSegments; h++) {
-            for (int w = 0; w < WidthSegments; w++) {
-                hm[0] = HeightMap[h][w];
-                hm[1] = HeightMap[h + 1][w];
-                hm[2] = HeightMap[h + 1][w + 1];
-                hm[3] = HeightMap[h][w + 1];
+                    x = (float) xi * segmentSize - halfWidth;
+                    z = (float) yi * segmentSize - halfWorldHeight;
 
-                x = (float) w * segmentSize - halfWidth;
-                z = (float) h * segmentSize - halfHeight;
-
-                square = new Tile(x, z, segmentSize, segmentSize, segmentHeightStep, hm);
-                square.SetColor(normalColor, lightColor, darkColor, seaColor, hm);
-                squares.addElement(square);
-            }
-        }
-
-        float[] vertices = new float[squares.size() * 6 * MyConstants.NumFloatPerVertex];
-        float[] colors = new float[squares.size() * 6 * MyConstants.NumFloatPerColor];
-        float[] shiny = new float[squares.size() * 6];
-        float[] normals = new float[squares.size() * 6 * MyConstants.NumFloatPerVertex];
-        short[] indicesWire = new short[squares.size() * 8];
-        float[] texCoords = new float[squares.size() * 6 * MyConstants.NumFloatPerTexCoord];
-        float[] texCoordsMap = new float[squares.size() * 6 * MyConstants.NumFloatPerTexCoord];
-
-        Vector3D normalA, normalB;
-        int index = 0;
-        int w, h;
-
-        for (int sq = 0; sq < squares.size(); sq++) {
-            square = squares.get(sq);
-            w = sq % WidthSegments;
-            h = sq / WidthSegments;
-
-
-            vertices[sq * 18 + 0] = square.P0.x;
-            vertices[sq * 18 + 1] = square.P0.y;
-            vertices[sq * 18 + 2] = square.P0.z;
-
-            vertices[sq * 18 + 3] = square.P1.x;
-            vertices[sq * 18 + 4] = square.P1.y;
-            vertices[sq * 18 + 5] = square.P1.z;
-
-            vertices[sq * 18 + 6] = square.P2.x;
-            vertices[sq * 18 + 7] = square.P2.y;
-            vertices[sq * 18 + 8] = square.P2.z;
-
-            vertices[sq * 18 + 9] = square.P3.x;
-            vertices[sq * 18 + 10] = square.P3.y;
-            vertices[sq * 18 + 11] = square.P3.z;
-
-            shiny[sq * 6 + 0] = square.P0.y > 0.0f ? 0.0f : 100.0f;
-            shiny[sq * 6 + 1] = square.P1.y > 0.0f ? 0.0f : 100.0f;
-            shiny[sq * 6 + 2] = square.P2.y > 0.0f ? 0.0f : 100.0f;
-            shiny[sq * 6 + 3] = square.P3.y > 0.0f ? 0.0f : 100.0f;
-
-            colors[sq * 24 + 0] = square.C0.r;
-            colors[sq * 24 + 1] = square.C0.g;
-            colors[sq * 24 + 2] = square.C0.b;
-            colors[sq * 24 + 3] = square.C0.a;
-
-            colors[sq * 24 + 4] = square.C1.r;
-            colors[sq * 24 + 5] = square.C1.g;
-            colors[sq * 24 + 6] = square.C1.b;
-            colors[sq * 24 + 7] = square.C1.a;
-
-            colors[sq * 24 + 8] = square.C2.r;
-            colors[sq * 24 + 9] = square.C2.g;
-            colors[sq * 24 + 10] = square.C2.b;
-            colors[sq * 24 + 11] = square.C2.a;
-
-            colors[sq * 24 + 12] = square.C3.r;
-            colors[sq * 24 + 13] = square.C3.g;
-            colors[sq * 24 + 14] = square.C3.b;
-            colors[sq * 24 + 15] = square.C3.a;
-
-            texCoords[sq * 12] = 0.0f;
-            texCoords[sq * 12 + 1] = 0.0f;
-            texCoords[sq * 12 + 2] = 0.0f;
-            texCoords[sq * 12 + 3] = 1.0f;
-            texCoords[sq * 12 + 4] = 1.0f;
-            texCoords[sq * 12 + 5] = 1.0f;
-            texCoords[sq * 12 + 6] = 1.0f;
-            texCoords[sq * 12 + 7] = 0.0f;
-
-            texCoordsMap[sq * 12] = ((float) w / (float) WidthSegments);
-            texCoordsMap[sq * 12 + 1] = ((float) h / (float) HeightSegments);
-            texCoordsMap[sq * 12 + 2] = ((float) w / (float) WidthSegments);
-            texCoordsMap[sq * 12 + 3] = ((float) (h + 1) / (float) HeightSegments);
-            texCoordsMap[sq * 12 + 4] = ((float) (w + 1) / (float) WidthSegments);
-            texCoordsMap[sq * 12 + 5] = ((float) (h + 1) / (float) HeightSegments);
-            texCoordsMap[sq * 12 + 6] = ((float) (w + 1) / (float) WidthSegments);
-            texCoordsMap[sq * 12 + 7] = ((float) h / (float) HeightSegments);
-
-            colors[sq * 24 + 16] = square.C4.r;
-            colors[sq * 24 + 17] = square.C4.g;
-            colors[sq * 24 + 18] = square.C4.b;
-            colors[sq * 24 + 19] = square.C4.a;
-
-            colors[sq * 24 + 20] = square.C5.r;
-            colors[sq * 24 + 21] = square.C5.g;
-            colors[sq * 24 + 22] = square.C5.b;
-            colors[sq * 24 + 23] = square.C5.a;
-
-            if (!square.mirrored) {
-                shiny[sq * 6 + 4] = square.P0.y > 0.0f ? 0.0f : 100.0f;
-                shiny[sq * 6 + 5] = square.P2.y > 0.0f ? 0.0f : 100.0f;
-
-                vertices[sq * 18 + 12] = square.P0.x;
-                vertices[sq * 18 + 13] = square.P0.y;
-                vertices[sq * 18 + 14] = square.P0.z;
-
-                vertices[sq * 18 + 15] = square.P2.x;
-                vertices[sq * 18 + 16] = square.P2.y;
-                vertices[sq * 18 + 17] = square.P2.z;
-
-                texCoords[sq * 12 + 8] = 0.0f;
-                texCoords[sq * 12 + 9] = 0.0f;
-                texCoords[sq * 12 + 10] = 1.0f;
-                texCoords[sq * 12 + 11] = 1.0f;
-
-                texCoordsMap[sq * 12 + 8] = ((float) w / (float) WidthSegments);
-                texCoordsMap[sq * 12 + 9] = ((float) h / (float) HeightSegments);
-                texCoordsMap[sq * 12 + 10] = ((float) (w + 1) / (float) WidthSegments);
-                texCoordsMap[sq * 12 + 11] = ((float) (h + 1) / (float) HeightSegments);
-
-                normalA = Vector3D.GetNormal(square.P0, square.P1, square.P2);
-                normalB = Vector3D.GetNormal(square.P3, square.P0, square.P2);
-
-                normals[sq * 18 + 6] = normalA.x;
-                normals[sq * 18 + 7] = normalA.y;
-                normals[sq * 18 + 8] = normalA.z;
-                normals[sq * 18 + 9] = normalB.x;
-                normals[sq * 18 + 10] = normalB.y;
-                normals[sq * 18 + 11] = normalB.z;
-            } else {
-                shiny[sq * 6 + 4] = square.P1.y > 0.0f ? 0.0f : 100.0f;
-                shiny[sq * 6 + 5] = square.P3.y > 0.0f ? 0.0f : 100.0f;
-
-                vertices[sq * 18 + 12] = square.P1.x;
-                vertices[sq * 18 + 13] = square.P1.y;
-                vertices[sq * 18 + 14] = square.P1.z;
-
-                vertices[sq * 18 + 15] = square.P3.x;
-                vertices[sq * 18 + 16] = square.P3.y;
-                vertices[sq * 18 + 17] = square.P3.z;
-
-                texCoords[sq * 12 + 8] = 0.0f;
-                texCoords[sq * 12 + 9] = 1.0f;
-                texCoords[sq * 12 + 10] = 1.0f;
-                texCoords[sq * 12 + 11] = 0.0f;
-
-                texCoordsMap[sq * 12 + 8] = ((float) w / (float) WidthSegments);
-                texCoordsMap[sq * 12 + 9] = ((float) (h + 1) / (float) HeightSegments);
-                texCoordsMap[sq * 12 + 10] = ((float) (w + 1) / (float) WidthSegments);
-                texCoordsMap[sq * 12 + 11] = ((float) h / (float) HeightSegments);
-
-                normalA = Vector3D.GetNormal(square.P0, square.P1, square.P3);
-                normalB = Vector3D.GetNormal(square.P2, square.P3, square.P1);
-
-                normals[sq * 18 + 6] = normalB.x;
-                normals[sq * 18 + 7] = normalB.y;
-                normals[sq * 18 + 8] = normalB.z;
-                normals[sq * 18 + 9] = normalA.x;
-                normals[sq * 18 + 10] = normalA.y;
-                normals[sq * 18 + 11] = normalA.z;
+                    final Tile square = new Tile(x, z, segmentSize, segmentSize, segmentHeightStep, hm);
+                    square.SetColor(normalColor, lightColor, darkColor, seaColor, hm);
+                    squareList.add(square);
+                }
             }
 
-            normals[sq * 18] = normalA.x;
-            normals[sq * 18 + 1] = normalA.y;
-            normals[sq * 18 + 2] = normalA.z;
-            normals[sq * 18 + 3] = normalA.x;
-            normals[sq * 18 + 4] = normalA.y;
-            normals[sq * 18 + 5] = normalA.z;
+            float[] vertices = new float[squareList.size() * 6 * MyConstants.NumFloatPerVertex];
+            float[] colors = new float[squareList.size() * 6 * MyConstants.NumFloatPerColor];
+            float[] shiny = new float[squareList.size() * 6];
+            float[] normals = new float[squareList.size() * 6 * MyConstants.NumFloatPerVertex];
+            short[] indicesWire = new short[squareList.size() * 8];
+            float[] texCoords = new float[squareList.size() * 6 * MyConstants.NumFloatPerTexCoord];
+            float[] texCoordsMap = new float[squareList.size() * 6 * MyConstants.NumFloatPerTexCoord];
 
-            normals[sq * 18 + 12] = normalB.x;
-            normals[sq * 18 + 13] = normalB.y;
-            normals[sq * 18 + 14] = normalB.z;
-            normals[sq * 18 + 15] = normalB.x;
-            normals[sq * 18 + 16] = normalB.y;
-            normals[sq * 18 + 17] = normalB.z;
+            Vector3D normalA, normalB;
+            int index = 0;
+            int w, h;
 
-            indicesWire[sq * 8] = (short) (index);
-            indicesWire[sq * 8 + 1] = (short) (index + 1);
-            indicesWire[sq * 8 + 2] = (short) (index + 1);
-            indicesWire[sq * 8 + 3] = (short) (index + 2);
-            indicesWire[sq * 8 + 4] = (short) (index + 2);
-            indicesWire[sq * 8 + 5] = (short) (index + 3);
-            indicesWire[sq * 8 + 6] = (short) (index + 3);
-            indicesWire[sq * 8 + 7] = (short) (index);
+            for (int sq = 0; sq < squareList.size(); sq++) {
+                final Tile square = squareList.get(sq);
+                w = (chunk.getX() * CHUNK_SEGMENTS_WIDTH) + (sq % chunk.getWidth());
+                h = (chunk.getY() * CHUNK_SEGMENTS_HEIGHT) + (sq / chunk.getHeight());
 
-            index += 6;
+                vertices[sq * 18 + 0] = square.P0.x;
+                vertices[sq * 18 + 1] = square.P0.y;
+                vertices[sq * 18 + 2] = square.P0.z;
+
+                vertices[sq * 18 + 3] = square.P1.x;
+                vertices[sq * 18 + 4] = square.P1.y;
+                vertices[sq * 18 + 5] = square.P1.z;
+
+                vertices[sq * 18 + 6] = square.P2.x;
+                vertices[sq * 18 + 7] = square.P2.y;
+                vertices[sq * 18 + 8] = square.P2.z;
+
+                vertices[sq * 18 + 9] = square.P3.x;
+                vertices[sq * 18 + 10] = square.P3.y;
+                vertices[sq * 18 + 11] = square.P3.z;
+
+                shiny[sq * 6 + 0] = square.P0.y > 0.0f ? 0.0f : 100.0f;
+                shiny[sq * 6 + 1] = square.P1.y > 0.0f ? 0.0f : 100.0f;
+                shiny[sq * 6 + 2] = square.P2.y > 0.0f ? 0.0f : 100.0f;
+                shiny[sq * 6 + 3] = square.P3.y > 0.0f ? 0.0f : 100.0f;
+
+                colors[sq * 24 + 0] = square.C0.r;
+                colors[sq * 24 + 1] = square.C0.g;
+                colors[sq * 24 + 2] = square.C0.b;
+                colors[sq * 24 + 3] = square.C0.a;
+
+                colors[sq * 24 + 4] = square.C1.r;
+                colors[sq * 24 + 5] = square.C1.g;
+                colors[sq * 24 + 6] = square.C1.b;
+                colors[sq * 24 + 7] = square.C1.a;
+
+                colors[sq * 24 + 8] = square.C2.r;
+                colors[sq * 24 + 9] = square.C2.g;
+                colors[sq * 24 + 10] = square.C2.b;
+                colors[sq * 24 + 11] = square.C2.a;
+
+                colors[sq * 24 + 12] = square.C3.r;
+                colors[sq * 24 + 13] = square.C3.g;
+                colors[sq * 24 + 14] = square.C3.b;
+                colors[sq * 24 + 15] = square.C3.a;
+
+                texCoords[sq * 12] = 0.0f;
+                texCoords[sq * 12 + 1] = 0.0f;
+                texCoords[sq * 12 + 2] = 0.0f;
+                texCoords[sq * 12 + 3] = 1.0f;
+                texCoords[sq * 12 + 4] = 1.0f;
+                texCoords[sq * 12 + 5] = 1.0f;
+                texCoords[sq * 12 + 6] = 1.0f;
+                texCoords[sq * 12 + 7] = 0.0f;
+
+                texCoordsMap[sq * 12] = ((float) w / (float) worldWidthSegments);
+                texCoordsMap[sq * 12 + 1] = ((float) h / (float) worldHeightSegments);
+                texCoordsMap[sq * 12 + 2] = ((float) w / (float) worldWidthSegments);
+                texCoordsMap[sq * 12 + 3] = ((float) (h + 1) / (float) worldHeightSegments);
+                texCoordsMap[sq * 12 + 4] = ((float) (w + 1) / (float) worldWidthSegments);
+                texCoordsMap[sq * 12 + 5] = ((float) (h + 1) / (float) worldHeightSegments);
+                texCoordsMap[sq * 12 + 6] = ((float) (w + 1) / (float) worldWidthSegments);
+                texCoordsMap[sq * 12 + 7] = ((float) h / (float) worldHeightSegments);
+
+                colors[sq * 24 + 16] = square.C4.r;
+                colors[sq * 24 + 17] = square.C4.g;
+                colors[sq * 24 + 18] = square.C4.b;
+                colors[sq * 24 + 19] = square.C4.a;
+
+                colors[sq * 24 + 20] = square.C5.r;
+                colors[sq * 24 + 21] = square.C5.g;
+                colors[sq * 24 + 22] = square.C5.b;
+                colors[sq * 24 + 23] = square.C5.a;
+
+                if (!square.mirrored) {
+                    shiny[sq * 6 + 4] = square.P0.y > 0.0f ? 0.0f : 100.0f;
+                    shiny[sq * 6 + 5] = square.P2.y > 0.0f ? 0.0f : 100.0f;
+
+                    vertices[sq * 18 + 12] = square.P0.x;
+                    vertices[sq * 18 + 13] = square.P0.y;
+                    vertices[sq * 18 + 14] = square.P0.z;
+
+                    vertices[sq * 18 + 15] = square.P2.x;
+                    vertices[sq * 18 + 16] = square.P2.y;
+                    vertices[sq * 18 + 17] = square.P2.z;
+
+                    texCoords[sq * 12 + 8] = 0.0f;
+                    texCoords[sq * 12 + 9] = 0.0f;
+                    texCoords[sq * 12 + 10] = 1.0f;
+                    texCoords[sq * 12 + 11] = 1.0f;
+
+                    texCoordsMap[sq * 12 + 8] = ((float) w / (float) worldWidthSegments);
+                    texCoordsMap[sq * 12 + 9] = ((float) h / (float) worldHeightSegments);
+                    texCoordsMap[sq * 12 + 10] = ((float) (w + 1) / (float) worldWidthSegments);
+                    texCoordsMap[sq * 12 + 11] = ((float) (h + 1) / (float) worldHeightSegments);
+
+                    normalA = Vector3D.GetNormal(square.P0, square.P1, square.P2);
+                    normalB = Vector3D.GetNormal(square.P3, square.P0, square.P2);
+
+                    normals[sq * 18 + 6] = normalA.x;
+                    normals[sq * 18 + 7] = normalA.y;
+                    normals[sq * 18 + 8] = normalA.z;
+                    normals[sq * 18 + 9] = normalB.x;
+                    normals[sq * 18 + 10] = normalB.y;
+                    normals[sq * 18 + 11] = normalB.z;
+                } else {
+                    shiny[sq * 6 + 4] = square.P1.y > 0.0f ? 0.0f : 100.0f;
+                    shiny[sq * 6 + 5] = square.P3.y > 0.0f ? 0.0f : 100.0f;
+
+                    vertices[sq * 18 + 12] = square.P1.x;
+                    vertices[sq * 18 + 13] = square.P1.y;
+                    vertices[sq * 18 + 14] = square.P1.z;
+
+                    vertices[sq * 18 + 15] = square.P3.x;
+                    vertices[sq * 18 + 16] = square.P3.y;
+                    vertices[sq * 18 + 17] = square.P3.z;
+
+                    texCoords[sq * 12 + 8] = 0.0f;
+                    texCoords[sq * 12 + 9] = 1.0f;
+                    texCoords[sq * 12 + 10] = 1.0f;
+                    texCoords[sq * 12 + 11] = 0.0f;
+
+                    texCoordsMap[sq * 12 + 8] = ((float) w / (float) worldWidthSegments);
+                    texCoordsMap[sq * 12 + 9] = ((float) (h + 1) / (float) worldHeightSegments);
+                    texCoordsMap[sq * 12 + 10] = ((float) (w + 1) / (float) worldWidthSegments);
+                    texCoordsMap[sq * 12 + 11] = ((float) h / (float) worldHeightSegments);
+
+                    normalA = Vector3D.GetNormal(square.P0, square.P1, square.P3);
+                    normalB = Vector3D.GetNormal(square.P2, square.P3, square.P1);
+
+                    normals[sq * 18 + 6] = normalB.x;
+                    normals[sq * 18 + 7] = normalB.y;
+                    normals[sq * 18 + 8] = normalB.z;
+                    normals[sq * 18 + 9] = normalA.x;
+                    normals[sq * 18 + 10] = normalA.y;
+                    normals[sq * 18 + 11] = normalA.z;
+                }
+
+                normals[sq * 18] = normalA.x;
+                normals[sq * 18 + 1] = normalA.y;
+                normals[sq * 18 + 2] = normalA.z;
+                normals[sq * 18 + 3] = normalA.x;
+                normals[sq * 18 + 4] = normalA.y;
+                normals[sq * 18 + 5] = normalA.z;
+
+                normals[sq * 18 + 12] = normalB.x;
+                normals[sq * 18 + 13] = normalB.y;
+                normals[sq * 18 + 14] = normalB.z;
+                normals[sq * 18 + 15] = normalB.x;
+                normals[sq * 18 + 16] = normalB.y;
+                normals[sq * 18 + 17] = normalB.z;
+
+                indicesWire[sq * 8] = (short) (index);
+                indicesWire[sq * 8 + 1] = (short) (index + 1);
+                indicesWire[sq * 8 + 2] = (short) (index + 1);
+                indicesWire[sq * 8 + 3] = (short) (index + 2);
+                indicesWire[sq * 8 + 4] = (short) (index + 2);
+                indicesWire[sq * 8 + 5] = (short) (index + 3);
+                indicesWire[sq * 8 + 6] = (short) (index + 3);
+                indicesWire[sq * 8 + 7] = (short) (index);
+
+                index += 6;
+            }
+            
+            numberOfIndicesByChunk.put(chunk, indicesWire.length);
+            Log.d("ADDCHUNK", chunk.getX()+"//"+chunk.getY() + "   " + vertices.length);
+            verticesByChunk.get(chunk).put(vertices);
+            verticesByChunk.get(chunk).position(0);
+        
+            shinyByChunk.get(chunk).put(shiny);
+            shinyByChunk.get(chunk).position(0);
+            
+            colorsByChunk.get(chunk).put(colors);
+            colorsByChunk.get(chunk).position(0);
+
+            normalsByChunk.get(chunk).put(normals);
+            normalsByChunk.get(chunk).position(0);
+            
+            texCoordsByChunk.get(chunk).put(texCoords);
+            texCoordsByChunk.get(chunk).position(0);
+
+            texCoordMapByChunk.get(chunk).put(texCoordsMap);
+            texCoordMapByChunk.get(chunk).position(0);
+            
+            indicesWireByChunk.get(chunk).put(indicesWire);
+            indicesWireByChunk.get(chunk).position(0);
         }
-        numberOfIndicesWire = indicesWire.length;
-
-        vertexBuffer.put(vertices);
-        vertexBuffer.position(0);
-
-        shinyBuffer.put(shiny);
-        shinyBuffer.position(0);
-
-        colorBuffer.put(colors);
-        colorBuffer.position(0);
-
-        normalBuffer.put(normals);
-        normalBuffer.position(0);
-
-        texCoordBuffer.put(texCoords);
-        texCoordBuffer.position(0);
-
-        texCoordBufferMap.put(texCoordsMap);
-        texCoordBufferMap.position(0);
-
-        indexBufferWire.put(indicesWire);
-        indexBufferWire.position(0);
     }
 
     public void GenerateMaterials() {
@@ -495,8 +533,8 @@ public class PlanetSurface {
         RebuildTextureMap();
     }
 
-    public void SetPickType(int type) {
-        PickType = type;
+    public void setPickType(int type) {
+        pickType = type;
     }
 
 
@@ -526,68 +564,72 @@ public class PlanetSurface {
                 newVBOindicesByTextureId.append(key, current);
             }
 
+            for (final Chunk chunk : chunks) {
+                for (int h = 0; h < chunk.getHeight(); h++) {
+                    for (int w = 0; w < chunk.getWidth(); w++) {
 
-            for (int h = 0; h < HeightSegments; h++) {
-                for (int w = 0; w < WidthSegments; w++) {
-//          if(roadMap.Get(w, h) != 0)
-//            Log.d("loop",roadMap.Get(w, h) + "//" + roadMap.GetTextureId(w, h));
+                        int xi = chunk.getX() * CHUNK_SEGMENTS_WIDTH + w;
+                        int yi = chunk.getY() * CHUNK_SEGMENTS_HEIGHT + h;
+                        if (roadMap.GetTextureId(xi, yi) != key) {
+                            continue;
+                        }
 
-                    if (roadMap.GetTextureId(w, h) != key)
-                        continue;
+                        index = h * chunk.getWidth() + w;
+                        vIndex = (short) (index * 6);
 
-                    if (roadMap.GetTextureId(w, h) > 0)
-                        Log.d("roadmap", "" + roadMap.GetTextureId(w, h));
+                        final List<Tile> squareList = squaresOfWorld.get(chunk);
+                        square = squareList.get(index);
 
-                    index = h * WidthSegments + w;
-                    vIndex = (short) (index * 6);
+                        if (!square.mirrored) {
+                            current.Add(vIndex);
+                            current.Add(vIndex + 1);
+                            current.Add(vIndex + 2);
 
-                    square = squares.get(index);
+                            current.Add(vIndex + 5);
+                            current.Add(vIndex + 3);
+                            current.Add(vIndex + 4);
+                        } else {
+                            current.Add(vIndex + 3);
+                            current.Add(vIndex);
+                            current.Add(vIndex + 1);
 
-
-                    if (!square.mirrored) {
-                        current.Add(vIndex);
-                        current.Add(vIndex + 1);
-                        current.Add(vIndex + 2);
-
-                        current.Add(vIndex + 5);
-                        current.Add(vIndex + 3);
-                        current.Add(vIndex + 4);
-                    } else {
-                        current.Add(vIndex + 3);
-                        current.Add(vIndex);
-                        current.Add(vIndex + 1);
-
-                        current.Add(vIndex + 4);
-                        current.Add(vIndex + 2);
-                        current.Add(vIndex + 5);
+                            current.Add(vIndex + 4);
+                            current.Add(vIndex + 2);
+                            current.Add(vIndex + 5);
+                        }
                     }
-
                 }
+                
+                final SparseArray<Indices> vboIndicesByTextureId = vboIndicesByChunkByTextureId.get(chunk);
+                // switch to new indexbuffer
+                idx = vboIndicesByTextureId.get(key);
+                if (idx == null) {
+                    idx = new Indices();
+                    vboIndicesByTextureId.append(key, idx);
+                }
+                
+                if (key != 0 && idx.textureHandle1 <= 0) {
+                    idx.textureHandle1 = TextureHandler.GetTextureHandle(key);
+                }
+                
+                short[] elems = current.ToArray();
+                ShortBuffer tmpS = ByteBuffer.allocateDirect(elems.length * MyConstants.NumBytesPerShort).order(ByteOrder.nativeOrder()).asShortBuffer();
+                tmpS.put(elems);
+                tmpS.position(0);
+                idx.indexBuffer = tmpS;
+                idx.numberOfIndices = elems.length;
             }
 
-            // switch to new indexbuffer
-            idx = VBOindicesByTextureId.get(key);
-            if (idx == null) {
-                idx = new Indices();
-                VBOindicesByTextureId.append(key, idx);
-            }
-            if (key != 0 && idx.textureHandle1 <= 0) {
-                idx.textureHandle1 = TextureHandler.GetTextureHandle(key);
-            }
-
-            short[] elems = current.ToArray();
-            ShortBuffer tmpS = ByteBuffer.allocateDirect(elems.length * MyConstants.NumBytesPerShort).order(ByteOrder.nativeOrder()).asShortBuffer();
-            tmpS.put(elems);
-            tmpS.position(0);
-            idx.indexBuffer = tmpS;
-            idx.numberOfIndices = elems.length;
         }
     }
 
     private void UpdateConnectionPoints() {
         final CopyOnWriteArrayList<BuildingDescriptor> buildingDescriptors = planetDescriptor.getBuildings();
+        
+        for(final Chunk chunk : chunks) {
+            numberOfIndicesConnectionByChunk.put(chunk, 0);
+        }
 
-        numberConnectionPointsIndices = 0;
         for (final BuildingDescriptor bd : buildingDescriptors) {
             for (final Position2D p : bd.ConnectionPoints) {
                 AddToConnectionPoints(p.X, p.Y);
@@ -669,14 +711,31 @@ public class PlanetSurface {
         } else {
             return null;
         }
-
-        int vertexIndex = (h * WidthSegments + w) * MyConstants.NumVerticesPerQuad * MyConstants.NumFloatPerVertex;
+        
+        
+        final Chunk chunk = getChunkOfWorldCoordinates(w, h);
+        final int xi = w % CHUNK_SEGMENTS_WIDTH;
+        final int yi = h % CHUNK_SEGMENTS_HEIGHT;
+        final FloatBuffer vertexBuffer = verticesByChunk.get(chunk);
+        final int vertexIndex = (yi * chunk.getWidth() + xi) * MyConstants.NumVerticesPerQuad * MyConstants.NumFloatPerVertex;
         float x = vertexBuffer.get(vertexIndex);
         float y = vertexBuffer.get(vertexIndex + 1);
         float z = vertexBuffer.get(vertexIndex + 2);
         vehicle.setPosition(x, y, z);
         Vehicles.add(vehicle);
         return vehicle;
+    }
+    
+    private Chunk getChunkOfWorldCoordinates(final int w, final int h) {
+        final int x = w / CHUNK_SEGMENTS_WIDTH;
+        final int y = h / CHUNK_SEGMENTS_HEIGHT;
+        
+        for (final Chunk chunk : chunks) {
+            if (chunk.getX() == x && chunk.getY() == y) {
+                return chunk;
+            }
+        }
+        return null;
     }
 
     private void AddToRoadMap(int w, int h, byte dir) {
@@ -693,7 +752,6 @@ public class PlanetSurface {
         int dw, dh, totalChange;
         int w = FirstPickResultW;
         int h = FirstPickResultH;
-
 
         if (Math.abs(widthDelta) >= Math.abs(heightDelta)) {
             if (widthDelta == 0)
@@ -845,7 +903,12 @@ public class PlanetSurface {
 
         if (BestPath != null)
             for (PathNode pn : BestPath) {
-                i = pn.y * WidthSegments + pn.x;
+                final Chunk chunk = getChunkOfWorldCoordinates(pn.x, pn.y);
+                final int xi = pn.x % CHUNK_SEGMENTS_WIDTH;
+                final int yi = pn.y % CHUNK_SEGMENTS_HEIGHT;
+                final List<Tile> squares = squaresOfWorld.get(chunk);
+                
+                i = yi * chunk.getWidth() + xi;
                 EW = 0;
                 NS = 0;
                 switch (squares.get(i).TileType) {
@@ -877,9 +940,17 @@ public class PlanetSurface {
     }
 
     private boolean HasHit(Ray ray, int w, int h) {
-        Triangle triangle = new Triangle();
-        int index = ((h * WidthSegments + w) * MyConstants.NumVerticesPerQuad) * MyConstants.NumFloatPerVertex;
-
+        if ((w < 0 || w >= worldWidthSegments) || (h < 0 || h >= worldHeightSegments)) {
+            return false;
+        }
+        
+        final Triangle triangle = new Triangle();
+        final Chunk chunk = getChunkOfWorldCoordinates(w, h);
+        final int xi = w % CHUNK_SEGMENTS_WIDTH;
+        final int yi = h % CHUNK_SEGMENTS_HEIGHT;
+        final int index = ((yi * chunk.getWidth() + xi) * MyConstants.NumVerticesPerQuad) * MyConstants.NumFloatPerVertex;
+        final FloatBuffer vertexBuffer = verticesByChunk.get(chunk);
+        
         try {
             triangle.P0.x = vertexBuffer.get(index + 0);
             triangle.P0.y = vertexBuffer.get(index + 1);
@@ -917,12 +988,9 @@ public class PlanetSurface {
         int x, y;
         int h, w;
         int tmp;
-        int vertexIndex;
         boolean positive;
 
-        numberPositiveSelectedIndices = 0;
-        numberNegativeSelectedIndices = 0;
-
+        Deselect();
         int[][] grid = GameActivity.MyGameLogic.SelectionGrid;
         h = (grid != null) ? grid.length : 0;
         w = (h > 0) ? grid[0].length : 0;
@@ -965,12 +1033,16 @@ public class PlanetSurface {
                 x = FirstPickResultW - (w / 2) + ww;
 
                 if (hh == 0 && ww == 0) {
-                    vertexIndex = (y * WidthSegments + x) * MyConstants.NumVerticesPerQuad * MyConstants.NumFloatPerVertex;
+                    final Chunk chunk = getChunkOfWorldCoordinates(x, y);
+                    final FloatBuffer vertexBuffer = verticesByChunk.get(chunk);
+                    final int xi = x % CHUNK_SEGMENTS_WIDTH;
+                    final int yi = y % CHUNK_SEGMENTS_HEIGHT;
+                    final int vertexIndex = ((yi * chunk.getWidth() + xi) * MyConstants.NumVerticesPerQuad) * MyConstants.NumFloatPerVertex;
+                    
                     SelectedGridStartPoint.x = vertexBuffer.get(vertexIndex);
                     SelectedGridStartPoint.y = vertexBuffer.get(vertexIndex + 1);
                     SelectedGridStartPoint.z = vertexBuffer.get(vertexIndex + 2);
                 }
-
 
                 if (grid[hh][ww] == 0)
                     continue;
@@ -984,7 +1056,6 @@ public class PlanetSurface {
                 if (positive) {
                     AddToPositiveSelection(x, y);
                 } else {
-                    Log.d("AddToNegativeSelection", "5");
                     AddToNegativeSelection(x, y);
                 }
             }
@@ -996,7 +1067,7 @@ public class PlanetSurface {
     public void Pick(Ray ray) {
         boolean found = false;
 
-        if (PickType == 1) {
+        if (pickType == 1) {
             for (final Building bd : Buildings) {
                 if (Helpers.HasBoundingboxHit(ray, bd.BoundingBox)) {
                     GameActivity.MyGameLogic.BuildingClicked(bd);
@@ -1006,8 +1077,8 @@ public class PlanetSurface {
         }
 
 
-        for (int h = 0; h < HeightSegments && !found; h++) {
-            for (int w = 0; w < WidthSegments; w++) {
+        for (int h = 0; h < worldHeightSegments && !found; h++) {
+            for (int w = 0; w < worldWidthSegments; w++) {
                 if (HasHit(ray, w, h)) {
                     found = true;
                     FirstPickResultW = w;
@@ -1022,8 +1093,8 @@ public class PlanetSurface {
         if (found) {
             UpdateSelectionByDirection(true);
             SetResourcesAtLocation();
-            Log.d("PlanetSurface", "Pick" + numberNegativeSelectedIndices);
-            GameActivity.MyGameLogic.SetReadyToBuild(numberNegativeSelectedIndices == 0);
+            Log.d("PlanetSurface", "Pick" + getNegativeSelectionCount());
+            GameActivity.MyGameLogic.SetReadyToBuild(getNegativeSelectionCount() == 0);
         }
     }
 
@@ -1033,7 +1104,7 @@ public class PlanetSurface {
 
         for (h = -PickUpdateRange; h < PickUpdateRange && !found; h++) {
             for (w = -PickUpdateRange; w < PickUpdateRange; w++) {
-                if ((LastPickResultW + w > 0 && LastPickResultW + w <= WidthSegments) && (LastPickResultH + h > 0 && LastPickResultH + h <= HeightSegments))
+                if ((LastPickResultW + w > 0 && LastPickResultW + w <= worldWidthSegments) && (LastPickResultH + h > 0 && LastPickResultH + h <= worldHeightSegments))
                     if (HasHit(ray, LastPickResultW + w, LastPickResultH + h)) {
                         found = true;
                         LastPickResultW += w;
@@ -1073,8 +1144,7 @@ public class PlanetSurface {
 
 
             if (GameActivity.MyGameLogic.MouseMoveAction == GameLogic.MOUSE_DRAG) {
-                numberPositiveSelectedIndices = 0;
-                numberNegativeSelectedIndices = 0;
+                Deselect();
                 w = FirstPickResultW;
                 h = FirstPickResultH;
 
@@ -1087,11 +1157,9 @@ public class PlanetSurface {
                         positive &= (HeightMap[h][w] == HeightMap[h + 1][w]);
                         positive &= (HeightMap[h][w + 1] == HeightMap[h + 1][w + 1]);
 
-
                         if (positive) {
                             AddToPositiveSelection(w, h);
                         } else {
-                            Log.d("AddToNegativeSelection", "1");
                             AddToNegativeSelection(w, h);
                         }
                         if (a + 1 < totalChange) w += dw;
@@ -1109,7 +1177,6 @@ public class PlanetSurface {
                             if (positive) {
                                 AddToPositiveSelection(w, h);
                             } else {
-                                Log.d("AddToNegativeSelection", "2");
                                 AddToNegativeSelection(w, h);
                             }
                             h += dh;
@@ -1125,7 +1192,6 @@ public class PlanetSurface {
                         if (positive) {
                             AddToPositiveSelection(w, h);
                         } else {
-                            Log.d("AddToNegativeSelection", "3");
                             AddToNegativeSelection(w, h);
                         }
                         if (a + 1 < totalChange) h += dh;
@@ -1145,7 +1211,6 @@ public class PlanetSurface {
                                 AddToPositiveSelection(w, h);
                             } else {
                                 AddToNegativeSelection(w, h);
-                                Log.d("AddToNegativeSelection", "4");
                             }
                             w += dw;
                         }
@@ -1153,15 +1218,14 @@ public class PlanetSurface {
                 }
 
                 SetResourcesAtLocation();
-                GameActivity.MyGameLogic.SetReadyToBuild(numberNegativeSelectedIndices == 0);
+                GameActivity.MyGameLogic.SetReadyToBuild(getNegativeSelectionCount() == 0);
             } else if (GameActivity.MyGameLogic.MouseMoveAction == GameLogic.MOUSE_DRAG_INTO_DIRECTION) {
                 UpdateSelectionByDirection(false);
 
                 SetResourcesAtLocation();
-                GameActivity.MyGameLogic.SetReadyToBuild(numberNegativeSelectedIndices == 0);
+                GameActivity.MyGameLogic.SetReadyToBuild(getNegativeSelectionCount() == 0);
             } else if (GameActivity.MyGameLogic.MouseMoveAction == GameLogic.MOUSE_DRAG_FOR_PLANE) {
-                numberPositiveSelectedIndices = 0;
-                numberNegativeSelectedIndices = 0;
+                Deselect();
 
                 int lpw = LastPickResultW;
                 if (Math.abs(widthDelta) >= 10)
@@ -1182,6 +1246,14 @@ public class PlanetSurface {
             }
         }
     }
+    
+    private int getNegativeSelectionCount() {
+        int sum = 0;
+        for(final Integer i : numberOfIndicesNegativeByChunk.values()){
+            sum += i.intValue();
+        }
+        return sum;
+    }
 
     private float GetMaterialAtLocation(String materialKey) {
         switch (materialKey) {
@@ -1194,61 +1266,86 @@ public class PlanetSurface {
     }
 
     private void SetResourcesAtLocation() {
-        GameActivity.MyGameLogic.SetMaterialAtLocation("MATERIAL_RARE_EARTH", numberNegativeSelectedIndices == 0 ? GetMaterialAtLocation("MATERIAL_RARE_EARTH") : 0.0f);
-        GameActivity.MyGameLogic.SetMaterialAtLocation("MATERIAL_CORE_ICE", numberNegativeSelectedIndices == 0 ? GetMaterialAtLocation("MATERIAL_CORE_ICE") : 0.0f);
+        GameActivity.MyGameLogic.SetMaterialAtLocation("MATERIAL_RARE_EARTH", getNegativeSelectionCount() == 0 ? GetMaterialAtLocation("MATERIAL_RARE_EARTH") : 0.0f);
+        GameActivity.MyGameLogic.SetMaterialAtLocation("MATERIAL_CORE_ICE", getNegativeSelectionCount() == 0 ? GetMaterialAtLocation("MATERIAL_CORE_ICE") : 0.0f);
     }
 
     public void Deselect() {
-        numberPositiveSelectedIndices = 0;
-        numberNegativeSelectedIndices = 0;
+        for(final Chunk chunk : chunks) {
+            numberOfIndicesPositiveByChunk.put(chunk, 0);
+            numberOfIndicesNegativeByChunk.put(chunk, 0);
+        }
     }
 
     private void AddToPositiveSelection(int w, int h) {
-//    Log.d("AddToPositiveSelection",w+"/"+h);
-        int index = (h * WidthSegments + w) * MyConstants.NumVerticesPerQuad;
+
+        final int xi = w % CHUNK_SEGMENTS_WIDTH;
+        final int yi = h % CHUNK_SEGMENTS_HEIGHT;
+        final Chunk chunk = getChunkOfWorldCoordinates(w, h);
+        
+        final ShortBuffer indexBufferPositiveSelection = indicesPositiveSelectionByChunk.get(chunk);
+        int numberPositiveSelectedIndices = numberOfIndicesPositiveByChunk.get(chunk);
+        
+        int index = (yi * chunk.getWidth() + xi) * MyConstants.NumVerticesPerQuad;
         indexBufferPositiveSelection.put(numberPositiveSelectedIndices++, (short) (index));
-        indexBufferPositiveSelection.put(numberPositiveSelectedIndices++, (short) (index + MyConstants.NumVerticesPerQuad));
+        indexBufferPositiveSelection.put(numberPositiveSelectedIndices++, (short) (index + 1));
 
-        indexBufferPositiveSelection.put(numberPositiveSelectedIndices++, (short) (index + MyConstants.NumVerticesPerQuad));
-        indexBufferPositiveSelection.put(numberPositiveSelectedIndices++, (short) (index + WidthSegmentVertices + MyConstants.NumVerticesPerQuad));
-
-        indexBufferPositiveSelection.put(numberPositiveSelectedIndices++, (short) (index + WidthSegmentVertices + MyConstants.NumVerticesPerQuad));
-        indexBufferPositiveSelection.put(numberPositiveSelectedIndices++, (short) (index + WidthSegmentVertices));
-
-        indexBufferPositiveSelection.put(numberPositiveSelectedIndices++, (short) (index + WidthSegmentVertices));
+        indexBufferPositiveSelection.put(numberPositiveSelectedIndices++, (short) (index + 1));
+        indexBufferPositiveSelection.put(numberPositiveSelectedIndices++, (short) (index + 2));
+        
+        indexBufferPositiveSelection.put(numberPositiveSelectedIndices++, (short) (index + 2));
+        indexBufferPositiveSelection.put(numberPositiveSelectedIndices++, (short) (index + 3));
+        
+        indexBufferPositiveSelection.put(numberPositiveSelectedIndices++, (short) (index + 3));
         indexBufferPositiveSelection.put(numberPositiveSelectedIndices++, (short) (index));
+        
+        numberOfIndicesPositiveByChunk.put(chunk, numberPositiveSelectedIndices);
     }
 
     private void AddToNegativeSelection(int w, int h) {
-        int index = (h * WidthSegments + w) * MyConstants.NumVerticesPerQuad;
+        final int xi = w % CHUNK_SEGMENTS_WIDTH;
+        final int yi = h % CHUNK_SEGMENTS_HEIGHT;
+        final Chunk chunk = getChunkOfWorldCoordinates(w, h);
+        final ShortBuffer indexBufferNegativeSelection = indicesNegativeSelectionByChunk.get(chunk);
+        int numberNegativeSelectedIndices = numberOfIndicesNegativeByChunk.get(chunk);
+        
+        int index = (yi * chunk.getWidth() + xi) * MyConstants.NumVerticesPerQuad;
         indexBufferNegativeSelection.put(numberNegativeSelectedIndices++, (short) (index));
-        indexBufferNegativeSelection.put(numberNegativeSelectedIndices++, (short) (index + MyConstants.NumVerticesPerQuad));
+        indexBufferNegativeSelection.put(numberNegativeSelectedIndices++, (short) (index + 1));
 
-        indexBufferNegativeSelection.put(numberNegativeSelectedIndices++, (short) (index + MyConstants.NumVerticesPerQuad));
-        indexBufferNegativeSelection.put(numberNegativeSelectedIndices++, (short) (index + WidthSegmentVertices + MyConstants.NumVerticesPerQuad));
+        indexBufferNegativeSelection.put(numberNegativeSelectedIndices++, (short) (index + 1));
+        indexBufferNegativeSelection.put(numberNegativeSelectedIndices++, (short) (index + 2));
 
-        indexBufferNegativeSelection.put(numberNegativeSelectedIndices++, (short) (index + WidthSegmentVertices + MyConstants.NumVerticesPerQuad));
-        indexBufferNegativeSelection.put(numberNegativeSelectedIndices++, (short) (index + WidthSegmentVertices));
+        indexBufferNegativeSelection.put(numberNegativeSelectedIndices++, (short) (index + 2));
+        indexBufferNegativeSelection.put(numberNegativeSelectedIndices++, (short) (index + 3));
 
-        indexBufferNegativeSelection.put(numberNegativeSelectedIndices++, (short) (index + WidthSegmentVertices));
+        indexBufferNegativeSelection.put(numberNegativeSelectedIndices++, (short) (index + 3));
         indexBufferNegativeSelection.put(numberNegativeSelectedIndices++, (short) (index));
+   
+        numberOfIndicesNegativeByChunk.put(chunk, numberNegativeSelectedIndices);
     }
 
     private void AddToConnectionPoints(int w, int h) {
-        int index = (h * WidthSegments + w) * MyConstants.NumVerticesPerQuad;
-
-
+        final int xi = w % CHUNK_SEGMENTS_WIDTH;
+        final int yi = h % CHUNK_SEGMENTS_HEIGHT;
+        final Chunk chunk = getChunkOfWorldCoordinates(w, h);
+        final ShortBuffer indexBufferConnectionPoints = indicesConnectionPointsByChunk.get(chunk);
+        int numberConnectionPointsIndices = numberOfIndicesConnectionByChunk.get(chunk);
+        int index = (yi * chunk.getWidth() + xi) * MyConstants.NumVerticesPerQuad;
+        
         indexBufferConnectionPoints.put(numberConnectionPointsIndices++, (short) (index));
-        indexBufferConnectionPoints.put(numberConnectionPointsIndices++, (short) (index + MyConstants.NumVerticesPerQuad));
+        indexBufferConnectionPoints.put(numberConnectionPointsIndices++, (short) (index + 1));
 
-        indexBufferConnectionPoints.put(numberConnectionPointsIndices++, (short) (index + MyConstants.NumVerticesPerQuad));
-        indexBufferConnectionPoints.put(numberConnectionPointsIndices++, (short) (index + WidthSegmentVertices + MyConstants.NumVerticesPerQuad));
+        indexBufferConnectionPoints.put(numberConnectionPointsIndices++, (short) (index + 1));
+        indexBufferConnectionPoints.put(numberConnectionPointsIndices++, (short) (index + 2));
 
-        indexBufferConnectionPoints.put(numberConnectionPointsIndices++, (short) (index + WidthSegmentVertices + MyConstants.NumVerticesPerQuad));
-        indexBufferConnectionPoints.put(numberConnectionPointsIndices++, (short) (index + WidthSegmentVertices));
+        indexBufferConnectionPoints.put(numberConnectionPointsIndices++, (short) (index + 2));
+        indexBufferConnectionPoints.put(numberConnectionPointsIndices++, (short) (index + 3));
 
-        indexBufferConnectionPoints.put(numberConnectionPointsIndices++, (short) (index + WidthSegmentVertices));
+        indexBufferConnectionPoints.put(numberConnectionPointsIndices++, (short) (index + 3));
         indexBufferConnectionPoints.put(numberConnectionPointsIndices++, (short) (index));
+        
+        numberOfIndicesConnectionByChunk.put(chunk, numberConnectionPointsIndices);
     }
 
 
@@ -1265,49 +1362,58 @@ public class PlanetSurface {
     public void Draw(int positionHandle, int colorHandle, int normalHandle, int texIDHandle, int textureHandle, int texCoordHandle) {
         GLES20.glActiveTexture(GLES20.GL_TEXTURE1);
         GLES20.glUniform1i(textureHandle, 1);    // use GL_TEXTURE1
+        
+        
+        for (final Chunk chunk : chunks) {
+            final FloatBuffer vertexBuffer = verticesByChunk.get(chunk);
+            final FloatBuffer colorBuffer = colorsByChunk.get(chunk);
+            final FloatBuffer normalBuffer = normalsByChunk.get(chunk);
+            final FloatBuffer shinyBuffer = shinyByChunk.get(chunk);
+            final FloatBuffer texCoordBuffer = texCoordsByChunk.get(chunk);
+            final FloatBuffer texCoordBufferMap = texCoordMapByChunk.get(chunk);
+            final SparseArray<Indices> vboIndicesByTextureId = vboIndicesByChunkByTextureId.get(chunk);
+            
+            GLES20.glVertexAttribPointer(positionHandle, 3, GLES20.GL_FLOAT, false, 0, vertexBuffer);
+            GLES20.glEnableVertexAttribArray(positionHandle);
 
+            GLES20.glVertexAttribPointer(colorHandle, 4, GLES20.GL_FLOAT, false, 0, colorBuffer);
+            GLES20.glEnableVertexAttribArray(colorHandle);
 
-        GLES20.glVertexAttribPointer(positionHandle, 3, GLES20.GL_FLOAT, false, 0, vertexBuffer);
-        GLES20.glEnableVertexAttribArray(positionHandle);
+            GLES20.glVertexAttribPointer(normalHandle, 3, GLES20.GL_FLOAT, false, 0, normalBuffer);
+            GLES20.glEnableVertexAttribArray(normalHandle);
 
+            GLES20.glVertexAttribPointer(PlanetSurfaceRenderer.mShinyHandleDaytime, 1, GLES20.GL_FLOAT, false, 0, shinyBuffer);
+            GLES20.glEnableVertexAttribArray(PlanetSurfaceRenderer.mShinyHandleDaytime);
 
-        GLES20.glVertexAttribPointer(colorHandle, 4, GLES20.GL_FLOAT, false, 0, colorBuffer);
-        GLES20.glEnableVertexAttribArray(colorHandle);
-
-        GLES20.glVertexAttribPointer(normalHandle, 3, GLES20.GL_FLOAT, false, 0, normalBuffer);
-        GLES20.glEnableVertexAttribArray(normalHandle);
-
-        GLES20.glVertexAttribPointer(PlanetSurfaceRenderer.mShinyHandleDaytime, 1, GLES20.GL_FLOAT, false, 0, shinyBuffer);
-        GLES20.glEnableVertexAttribArray(PlanetSurfaceRenderer.mShinyHandleDaytime);
-
-        if (CurrentResourceMapStyle != MyConstants.ResourceMapStyle.NORMAL) {
-            GLES20.glVertexAttribPointer(texCoordHandle, 2, GLES20.GL_FLOAT, false, 0, texCoordBufferMap);
-        } else {
-            GLES20.glVertexAttribPointer(texCoordHandle, 2, GLES20.GL_FLOAT, false, 0, texCoordBuffer);
-        }
-        GLES20.glEnableVertexAttribArray(texCoordHandle);
-
-        Indices idx;
-        for (int key : keys) {
-            idx = VBOindicesByTextureId.get(key);
-            switch (CurrentResourceMapStyle) {
-                case RARE_EARTH:
-                    GLES20.glUniform1i(texIDHandle, TextureHandle_RareEarth);
-                    GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, TextureHandle_RareEarth);
-                    break;
-
-                case CORE_ICE:
-                    GLES20.glUniform1i(texIDHandle, TextureHandle_CoreIce);
-                    GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, TextureHandle_CoreIce);
-                    break;
-
-                default:
-                case NORMAL:
-                    GLES20.glUniform1i(texIDHandle, key);        // tell the shader, we want to use texture
-                    GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, idx.textureHandle1);                // set the handle of the texture from LoadTexture
-                    break;
+            if (CurrentResourceMapStyle != MyConstants.ResourceMapStyle.NORMAL) {
+                GLES20.glVertexAttribPointer(texCoordHandle, 2, GLES20.GL_FLOAT, false, 0, texCoordBufferMap);
+            } else {
+                GLES20.glVertexAttribPointer(texCoordHandle, 2, GLES20.GL_FLOAT, false, 0, texCoordBuffer);
             }
-            GLES20.glDrawElements(GLES20.GL_TRIANGLES, idx.numberOfIndices, GLES20.GL_UNSIGNED_SHORT, idx.indexBuffer);
+            GLES20.glEnableVertexAttribArray(texCoordHandle);
+
+            Indices idx;
+            for (int key : keys) {
+                idx = vboIndicesByTextureId.get(key);
+                switch (CurrentResourceMapStyle) {
+                    case RARE_EARTH:
+                        GLES20.glUniform1i(texIDHandle, TextureHandle_RareEarth);
+                        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, TextureHandle_RareEarth);
+                        break;
+
+                    case CORE_ICE:
+                        GLES20.glUniform1i(texIDHandle, TextureHandle_CoreIce);
+                        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, TextureHandle_CoreIce);
+                        break;
+
+                    default:
+                    case NORMAL:
+                        GLES20.glUniform1i(texIDHandle, key);        // tell the shader, we want to use texture
+                        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, idx.textureHandle1);                // set the handle of the texture from LoadTexture
+                        break;
+                }
+                GLES20.glDrawElements(GLES20.GL_TRIANGLES, idx.numberOfIndices, GLES20.GL_UNSIGNED_SHORT, idx.indexBuffer);
+            }
         }
 
         GLES20.glUniform1i(texIDHandle, 0);        // tell the shader, we're done using the texture and return to color mode
@@ -1337,21 +1443,32 @@ public class PlanetSurface {
 
         // selected grid
         {
-            GLES20.glVertexAttribPointer(PlanetSurfaceRenderer.mPositionWireHandle, 3, GLES20.GL_FLOAT, false, 0, vertexBuffer);
-            GLES20.glEnableVertexAttribArray(PlanetSurfaceRenderer.mPositionWireHandle);
+            ;
+            ;
             GLES20.glLineWidth(3.0f);
-
-            if (ShowConnectionPoints) {
-                GLES20.glVertexAttrib4fv(PlanetSurfaceRenderer.mColorWireHandle, colorConnectionPoints, 0);
-                GLES20.glDrawElements(GLES20.GL_LINES, numberConnectionPointsIndices, GLES20.GL_UNSIGNED_SHORT, indexBufferConnectionPoints);
+            
+            for(final Chunk chunk : chunks) {
+                final ShortBuffer indexBufferConnectionPoints = indicesConnectionPointsByChunk.get(chunk);
+                final ShortBuffer indexBufferPositiveSelection = indicesPositiveSelectionByChunk.get(chunk);
+                final ShortBuffer indexBufferNegativeSelection = indicesNegativeSelectionByChunk.get(chunk);
+                final FloatBuffer vertexBuffer = verticesByChunk.get(chunk);
+                
+                GLES20.glVertexAttribPointer(PlanetSurfaceRenderer.mPositionWireHandle, 3, GLES20.GL_FLOAT, false, 0, vertexBuffer);
+                GLES20.glEnableVertexAttribArray(PlanetSurfaceRenderer.mPositionWireHandle);
+                
+                if (showConnectionPoints) {
+                    GLES20.glVertexAttrib4fv(PlanetSurfaceRenderer.mColorWireHandle, colorConnectionPoints, 0);
+                    GLES20.glDrawElements(GLES20.GL_LINES, numberOfIndicesConnectionByChunk.get(chunk), GLES20.GL_UNSIGNED_SHORT, indexBufferConnectionPoints);
+                }
+                
+                GLES20.glVertexAttrib4fv(PlanetSurfaceRenderer.mColorWireHandle, colorPositiveSelection, 0);
+                GLES20.glDrawElements(GLES20.GL_LINES, numberOfIndicesPositiveByChunk.get(chunk), GLES20.GL_UNSIGNED_SHORT, indexBufferPositiveSelection);
+                
+                GLES20.glVertexAttrib4fv(PlanetSurfaceRenderer.mColorWireHandle, colorNegativeSelection, 0);
+                GLES20.glDrawElements(GLES20.GL_LINES, numberOfIndicesNegativeByChunk.get(chunk), GLES20.GL_UNSIGNED_SHORT, indexBufferNegativeSelection);  
             }
-
-            GLES20.glVertexAttrib4fv(PlanetSurfaceRenderer.mColorWireHandle, colorPositiveSelection, 0);
-            GLES20.glDrawElements(GLES20.GL_LINES, numberPositiveSelectedIndices, GLES20.GL_UNSIGNED_SHORT, indexBufferPositiveSelection);
-            GLES20.glVertexAttrib4fv(PlanetSurfaceRenderer.mColorWireHandle, colorNegativeSelection, 0);
-            GLES20.glDrawElements(GLES20.GL_LINES, numberNegativeSelectedIndices, GLES20.GL_UNSIGNED_SHORT, indexBufferNegativeSelection);
+            
             GLES20.glLineWidth(1.0f);
-
             GLES20.glDisableVertexAttribArray(PlanetSurfaceRenderer.mPositionWireHandle);
         }
 
@@ -1367,17 +1484,23 @@ public class PlanetSurface {
         GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
         GLES20.glEnable(GLES20.GL_BLEND);
 
-
-        GLES20.glVertexAttribPointer(PlanetSurfaceRenderer.mPositionWireHandle, 3, GLES20.GL_FLOAT, false, 0, vertexBuffer);
-        GLES20.glEnableVertexAttribArray(PlanetSurfaceRenderer.mPositionWireHandle);
-
         if (CurrentResourceMapStyle == MyConstants.ResourceMapStyle.NORMAL) {
             GLES20.glVertexAttrib4fv(PlanetSurfaceRenderer.mColorWireHandle, colorWire, 0);
         } else {
             GLES20.glVertexAttrib4fv(PlanetSurfaceRenderer.mColorWireHandle, colorWireDark, 0);
         }
-        GLES20.glDrawElements(GLES20.GL_LINES, numberOfIndicesWire, GLES20.GL_UNSIGNED_SHORT, indexBufferWire);
+        
+        for(final Chunk chunk : chunks) {
+            final ShortBuffer indexBufferWire = indicesWireByChunk.get(chunk);
+            final FloatBuffer vertexBuffer = verticesByChunk.get(chunk);
+            final int numberOfIndicesWire = numberOfIndicesByChunk.get(chunk);
+            
+            GLES20.glVertexAttribPointer(PlanetSurfaceRenderer.mPositionWireHandle, 3, GLES20.GL_FLOAT, false, 0, vertexBuffer);
+            GLES20.glEnableVertexAttribArray(PlanetSurfaceRenderer.mPositionWireHandle);
 
+            GLES20.glDrawElements(GLES20.GL_LINES, numberOfIndicesWire, GLES20.GL_UNSIGNED_SHORT, indexBufferWire);
+        }
+        
         GLES20.glDisableVertexAttribArray(PlanetSurfaceRenderer.mPositionWireHandle);
         GLES20.glDisable(GLES20.GL_BLEND);
     }

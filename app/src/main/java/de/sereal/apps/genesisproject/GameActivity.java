@@ -300,12 +300,10 @@ public class GameActivity extends Activity implements OnTouchListener
             SetViewType(ViewTypes.SYSTEM_VIEW);
             zoomAction = ZoomAction.ZOOM_CANCEL;
             ResetTo(4.0f);
-            Log.d("ZOOM", "END OUT");
           }
         } else {
           zoomActionRequested = System.currentTimeMillis();
           zoomAction = ZoomAction.ZOOM_OUT;
-          Log.d("ZOOM", "START OUT");
         }
       } else if (scale == 4.0f && viewType.value > ViewTypes.PLANET_VIEW.value) {
         if (zoomAction == ZoomAction.ZOOM_IN) {
@@ -313,19 +311,15 @@ public class GameActivity extends Activity implements OnTouchListener
             SetViewType(ViewTypes.PLANET_VIEW);
             zoomAction = ZoomAction.ZOOM_CANCEL;
             ResetTo(0.5f);
-            Log.d("ZOOM", "END IN");
           }
         } else {
           zoomActionRequested = System.currentTimeMillis();
           zoomAction = ZoomAction.ZOOM_IN;
-          Log.d("ZOOM", "START IN");
         }
       } else {
         zoomAction = ZoomAction.ZOOM_CANCEL;
-        Log.d("ZOOM", "CANCEL");
       }
-
-      Log.d("Calling listeners", "ScaleUpdate:" + scale);
+      
       for (TouchEvent te : TouchEventListeners) {
         te.OnScale(scale);
       }

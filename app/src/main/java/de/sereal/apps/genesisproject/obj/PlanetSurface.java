@@ -192,7 +192,6 @@ public class PlanetSurface {
                 final int h = Math.min(worldHeightSegments - yi, CHUNK_SEGMENTS_HEIGHT);
                 final Chunk chunk = new Chunk(x, y, w, h);
                 chunks.add(chunk);
-                Log.d("ADDCHUNK", x+"//"+y + "  " + w + "##"+h);
                 y++;
             }
             x++;
@@ -453,7 +452,6 @@ public class PlanetSurface {
             }
             
             numberOfIndicesByChunk.put(chunk, indicesWire.length);
-            Log.d("ADDCHUNK", chunk.getX()+"//"+chunk.getY() + "   " + vertices.length);
             verticesByChunk.get(chunk).put(vertices);
             verticesByChunk.get(chunk).position(0);
         
@@ -545,7 +543,7 @@ public class PlanetSurface {
     private void RebuildTextureMap() {
         Log.d("Rebuild", "TextureMap");
 
-        SparseArray<ShortArrayList> newVBOindicesByTextureId = new SparseArray<ShortArrayList>();
+        
         ShortArrayList current;
         Tile square;
         int index;
@@ -555,16 +553,16 @@ public class PlanetSurface {
         final RoadMap roadMap = planetDescriptor.getRoadMap();
         Log.d("Rebuilding", Arrays.toString(roadMap.getFlatRoadMap()));
 
-        for (int key : keys) {
-            Log.d("Key", "" + key);
-
-            current = newVBOindicesByTextureId.get(key);
-            if (current == null) {
-                current = new ShortArrayList();
-                newVBOindicesByTextureId.append(key, current);
-            }
-
-            for (final Chunk chunk : chunks) {
+        for (final Chunk chunk : chunks) {
+            SparseArray<ShortArrayList> newVBOindicesByTextureId = new SparseArray<ShortArrayList>();
+            for (int key : keys) {
+                
+                current = newVBOindicesByTextureId.get(key);
+                if (current == null) {
+                    current = new ShortArrayList();
+                    newVBOindicesByTextureId.append(key, current);
+                }
+            
                 for (int h = 0; h < chunk.getHeight(); h++) {
                     for (int w = 0; w < chunk.getWidth(); w++) {
 
@@ -575,7 +573,7 @@ public class PlanetSurface {
                         }
 
                         index = h * chunk.getWidth() + w;
-                        vIndex = (short) (index * 6);
+                        vIndex = (short) (index * MyConstants.NumVerticesPerQuad);
 
                         final List<Tile> squareList = squaresOfWorld.get(chunk);
                         square = squareList.get(index);
@@ -618,6 +616,7 @@ public class PlanetSurface {
                 tmpS.position(0);
                 idx.indexBuffer = tmpS;
                 idx.numberOfIndices = elems.length;
+                
             }
 
         }
@@ -739,7 +738,7 @@ public class PlanetSurface {
     }
 
     private void AddToRoadMap(int w, int h, byte dir) {
-        Log.d("Add", w + "/" + h + "/" + dir);
+        
         if (planetDescriptor.getRoadMap().Add(w, h, dir)) {
             // remove
         }

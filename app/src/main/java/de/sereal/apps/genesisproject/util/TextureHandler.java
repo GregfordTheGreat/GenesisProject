@@ -46,14 +46,12 @@ public class TextureHandler
 			return handle;
 
 		int[] textureHandle = new int[1];
-		
-		
+
 		GLES20.glGenTextures(1, textureHandle, 0);
-		Log.d("loading",""+textureHandle[0]);
 		if(textureHandle[0] != 0)
 		{
 			Bitmap bmp = BitmapFactory.decodeResource(context.getResources(), resourceId);
-			Log.d("loading","hasA?"+bmp.hasAlpha());
+			
 			// Bind to the texture in OpenGL
 			GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textureHandle[0]);
 			
@@ -62,7 +60,7 @@ public class TextureHandler
 	        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_NEAREST);
 	        
 	        GLES20.glTexParameterf(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, wrap);
-            GLES20.glTexParameterf(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, wrap);
+          GLES20.glTexParameterf(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, wrap);
 	        
 	        // Load the bitmap into the bound texture.
 	        GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bmp, 0);

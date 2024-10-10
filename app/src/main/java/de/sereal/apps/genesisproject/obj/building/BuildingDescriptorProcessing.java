@@ -1,6 +1,7 @@
 package de.sereal.apps.genesisproject.obj.building;
 
 import de.sereal.apps.genesisproject.rules.MaterialValue;
+import android.util.Log;
 
 /**
  * Created by sereal on 18.01.2018.
@@ -9,7 +10,7 @@ public class BuildingDescriptorProcessing extends BuildingDescriptor
 {
 
   public BuildingDescriptorProcessing() {
-    NeedsTransportation = true;
+    needsTransportation = true;
   }
 
   @Override
@@ -20,9 +21,8 @@ public class BuildingDescriptorProcessing extends BuildingDescriptor
     for(MaterialValue mv : ManufacturingTable.InputMaterials)
     {
       // dont have anything or storage has room
-      if(!ProductionInputStorage.containsKey(mv.Material) || storageCapacities.get(mv.Material) - ProductionInputStorage.get(mv.Material) >= mv.Value)
-      {
-        ReadyForDeliverance = true;
+      if(!ProductionInputStorage.containsKey(mv.Material) || storageCapacities.get(mv.Material) - ProductionInputStorage.get(mv.Material) >= mv.Value) {
+        readyForDelivery.put(mv.Material, true);
       }
 
       if(!ProductionInputStorage.containsKey(mv.Material))
@@ -46,9 +46,8 @@ public class BuildingDescriptorProcessing extends BuildingDescriptor
         ProducedGoods.put(ManufacturingTable.Output.Material,0.0f);
 
       ProducedGoods.put(ManufacturingTable.Output.Material, ProducedGoods.get(ManufacturingTable.Output.Material) + (prodValue * ManufacturingTable.Output.Value));
-      if(ProducedGoods.get(ManufacturingTable.Output.Material) / storageCapacities.get(ManufacturingTable.Output.Material) >= 0.3f)
-      {
-        ReadyForTransportation = true;
+      if(ProducedGoods.get(ManufacturingTable.Output.Material) / storageCapacities.get(ManufacturingTable.Output.Material) >= 0.3f) {
+          readyForTransportation.put(ManufacturingTable.Output.Material, true);
       }
 
       // Log.d("Producing", (prodValue * ManufacturingTable.Output.Value) + " of " + ManufacturingTable.Output.Material);

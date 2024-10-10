@@ -144,7 +144,7 @@ ReqMatValue1=10
 ManufactureType=[MATERIAL_TITANIUM_ALLOY]
 ManufactureValue=20
 StorageCapacity0=[MATERIAL_RARE_EARTH,200]
-StorageCapacity1=[MATERIAL_CORE_ICE,200]
+StorageCapacity1=[MATERIAL_CORE_ICE,20]
 StorageCapacity2=[MATERIAL_TITANIUM_ALLOY,200]
 
 [PROD_OXYGEN]

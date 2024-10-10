@@ -849,8 +849,8 @@ public class PlanetSurface {
     private void UpdatePathfinder() {
         CopyOnWriteArrayList<BuildingDescriptor> buildingDescriptors = planetDescriptor.getBuildings();
         for (final BuildingDescriptor bd : buildingDescriptors) {
-            Log.d("UpdatePathfinder", "bd.NeedsTransportation" + bd.NeedsTransportation);
-            if (bd.NeedsTransportation) {
+            Log.d("UpdatePathfinder", "bd.NeedsTransportation" + bd.needsTransportation);
+            if (bd.needsTransportation) {
                 List<PathNode> BestPath = null;
 
                 for (Position2D connPoint : bd.ConnectionPoints) {

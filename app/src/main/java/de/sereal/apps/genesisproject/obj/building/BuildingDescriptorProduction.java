@@ -7,7 +7,7 @@ public class BuildingDescriptorProduction extends BuildingDescriptor
 {
 
   public BuildingDescriptorProduction() {
-    NeedsTransportation = true;
+    needsTransportation = true;
   }
 
   @Override
@@ -20,9 +20,8 @@ public class BuildingDescriptorProduction extends BuildingDescriptor
         ProducedGoods.put(materialKey, 0.0f);
 
       val = Math.min(storageCapacities.get(materialKey), ProducedGoods.get(materialKey) + (deltaMs / 1000.0f * ProductionValues.get(materialKey)));
-      if(val / storageCapacities.get(materialKey) >= 0.3f)
-      {
-        ReadyForTransportation = true;
+      if(val / storageCapacities.get(materialKey) >= 0.3f) {
+        readyForTransportation.put(materialKey, true);
       }
 
       ProducedGoods.put(materialKey, val);

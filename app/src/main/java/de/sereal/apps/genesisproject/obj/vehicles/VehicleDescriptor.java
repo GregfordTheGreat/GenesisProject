@@ -15,22 +15,26 @@ import de.sereal.apps.genesisproject.util.VehicleTask;
  */
 public class VehicleDescriptor
 {
-  public HashMap<String, Float> Cargo = new HashMap<>();
+  private String cargoType;
+  private float cargoAmount;
   protected Vector<VehicleTask> TaskQueue = new Vector<>();
   public Vehicle vehicle = null;
   public Vector3D position;
   public Vector3D rotation = new Vector3D(0.0f, 90.0f, 0.0f);
 
-  public VehicleDescriptor(Vector3D position){
+  public VehicleDescriptor(final Vector3D position, final String cargoType) {
     this.position = position;
+    this.cargoType = cargoType;
+    this.cargoAmount = 0f;
   }
-
-  public void AddCargo(String materialKey, float amount)
-  {
-    Cargo.put(materialKey, amount);
+  
+  public void setCargoAmount(final Float cargoAmount) { 
+      this.cargoAmount = cargoAmount; 
   }
-  public HashMap<String, Float> getCargo(){ return Cargo; }
-
+  
+  public String getCargoType(){ return cargoType; }
+  public Float getCargoAmount(){ return cargoAmount; }
+  
   public void AddToTaskQueue(final VehicleTask queueItem)
   {
     TaskQueue.addElement(queueItem);
@@ -52,19 +56,19 @@ public class VehicleDescriptor
         switch( ((VehicleJob)task).JobType )
         {
           case LOAD_CARGO:
-            ((VehicleJob)task).buildingDescriptor.TransferToCargo();
+            ((VehicleJob)task).buildingDescriptor.transferToCargo();
             break;
 
           case UNLOAD_CARGO:
-            ((VehicleJob)task).buildingDescriptor.TransferToStash();
+            ((VehicleJob)task).buildingDescriptor.transferToStash();
             break;
 
-          case LOAD_DELIVERANCE:
-            ((VehicleJob)task).buildingDescriptor.TransferFromStash();
+          case LOAD_DELIVERY:
+            ((VehicleJob)task).buildingDescriptor.transferFromStash();
             break;
 
-          case UNLOAD_DELIVERANCE:
-            ((VehicleJob)task).buildingDescriptor.TransferFromCargo();
+          case UNLOAD_DELIVERY:
+            ((VehicleJob)task).buildingDescriptor.transferFromCargo();
             break;
 
           case REMOVE_TRANSPORT:

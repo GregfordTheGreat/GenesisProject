@@ -559,11 +559,23 @@ public class GameActivity extends Activity implements OnTouchListener
             oos.writeBytes(key);
             oos.writeFloat(productionInputStorage.get(key));
           }
-
-          oos.writeBoolean(bd.ReadyForTransportation);
-          oos.writeBoolean(bd.TransportationInProgress);
-          oos.writeBoolean(bd.ReadyForDeliverance);
-          oos.writeBoolean(bd.DeliveranceInProgress);
+          
+          oos.writeShort(bd.readyForTransportation.size());
+          for(final String key : bd.readyForTransportation.keySet()){
+              oos.writeShort(key.length());
+              oos.writeBytes(key);
+              oos.writeBoolean(bd.readyForTransportation.get(key));
+          }
+          oos.writeBoolean(bd.transportInProgress);
+          
+          oos.writeShort(bd.readyForDelivery.size());
+          for(final String key : bd.readyForDelivery.keySet()){
+              oos.writeShort(key.length());
+              oos.writeBytes(key);
+              oos.writeBoolean(bd.readyForDelivery.get(key));
+          }
+          oos.writeBoolean(bd.deliveryInProgress);
+          
           saveVehicle(oos, bd.getTransportVehicle());
           saveVehicle(oos, bd.getDeliveryVehicle());
         }
@@ -589,14 +601,10 @@ public class GameActivity extends Activity implements OnTouchListener
         oos.writeFloat(vehicleDescriptor.rotation.x);
         oos.writeFloat(vehicleDescriptor.rotation.y);
         oos.writeFloat(vehicleDescriptor.rotation.z);
-
-        final HashMap<String, Float> vehicleCargo = vehicleDescriptor.getCargo();
-        oos.writeShort(vehicleCargo.size());
-        for (final String key : vehicleCargo.keySet()) {
-          oos.writeShort(key.length());
-          oos.writeBytes(key);
-          oos.writeFloat(vehicleCargo.get(key));
-        }
+        
+        oos.writeShort(vehicleDescriptor.getCargoType().length());
+        oos.writeBytes(vehicleDescriptor.getCargoType());
+        oos.writeFloat(vehicleDescriptor.getCargoAmount());
 
         final Vector<VehicleTask> taskQueue = vehicleDescriptor.getTaskQueue();
         oos.writeShort(taskQueue.size());
@@ -630,20 +638,18 @@ public class GameActivity extends Activity implements OnTouchListener
     try{
       if(ois.readBoolean()){
         final Vector3D position = new Vector3D(ois.readFloat(), ois.readFloat(), ois.readFloat());
-        final VehicleDescriptor vehicleDescriptor = new VehicleDescriptor(position);
-        vehicleDescriptor.rotation = new Vector3D(ois.readFloat(), ois.readFloat(), ois.readFloat());
+        final Vector3D rotation = new Vector3D(ois.readFloat(), ois.readFloat(), ois.readFloat());
 
 
-        byte[] bytes;
+        final byte[] bytes = readNBytes(ois, ois.readShort());
+        final String cargoType = new String(bytes);
+        final Float cargoAmount = ois.readFloat();
+        final VehicleDescriptor vehicleDescriptor = new VehicleDescriptor(position, cargoType);
+        
+        vehicleDescriptor.setCargoAmount(cargoAmount);
+        vehicleDescriptor.rotation = rotation;
+        
         short count = ois.readShort();
-        while(count-- > 0){
-          bytes = readNBytes(ois, ois.readShort());
-          vehicleDescriptor.AddCargo(new String(bytes), ois.readFloat());
-        }
-
-        Log.d("loadVehicle",position.x + "//"+position.y+"//"+position.z);
-
-        count = ois.readShort();
 //        Log.d("loadTasks",""+count);
         while(count-- > 0){
 //          Log.d("loadTask",""+count);
@@ -771,10 +777,20 @@ public class GameActivity extends Activity implements OnTouchListener
 
               bd.LoadBuildingDefinition();
 
-              bd.ReadyForTransportation = ois.readBoolean();
-              bd.TransportationInProgress = ois.readBoolean();
-              bd.ReadyForDeliverance = ois.readBoolean();
-              bd.DeliveranceInProgress = ois.readBoolean();
+              short count = ois.readShort();
+              while(count-- > 0) {
+                  bytes = readNBytes(ois, ois.readShort());
+                  bd.readyForTransportation.put(new String(bytes), ois.readBoolean());
+              }
+              bd.transportInProgress = ois.readBoolean();
+              
+              count = ois.readShort();
+              while(count-- > 0) {
+                  bytes = readNBytes(ois, ois.readShort());
+                  bd.readyForDelivery.put(new String(bytes), ois.readBoolean());
+              }
+              bd.deliveryInProgress = ois.readBoolean();
+              
               bd.setTransportVehicle(loadVehicle(ois, bd));
               bd.setDeliveryVehicle(loadVehicle(ois, bd));
 

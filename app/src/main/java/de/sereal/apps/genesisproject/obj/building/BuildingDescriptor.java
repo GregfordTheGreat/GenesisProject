@@ -46,13 +46,13 @@ public class BuildingDescriptor
   protected HashMap<String, Float> resourceCosts = new HashMap<>();
   protected HashMap<String, Float> resourceProductions = new HashMap<>();
   protected HashMap<String, Float> storageCapacities = new HashMap<>();
-
-  public boolean TransportationInProgress = false;
-  public boolean DeliveranceInProgress = false;
-  public boolean ReadyForTransportation = false;
-  public boolean ReadyForDeliverance = false;
-  public boolean NeedsTransportation = false;
-
+  public boolean needsTransportation = false;
+  
+  public boolean transportInProgress = false;
+  public boolean deliveryInProgress = false;
+  public Map<String, Boolean> readyForDelivery = new HashMap<>();
+  public Map<String, Boolean> readyForTransportation = new HashMap<>();
+  
   public void setPlanetDescriptor(PlanetDescriptor planetDescriptor) { this.planetDescriptor = planetDescriptor; }
 
   public String getBuildingType() { return buildingType; }
@@ -150,67 +150,62 @@ public class BuildingDescriptor
   }
 
 
-  public void SetPathToTransportCenter(List<PathNode> path)
-  {
+  public void SetPathToTransportCenter(List<PathNode> path) {
     PathToTransportCenter = path;
-//    ReadyForTransportation = NeedsTransportation && (path != null) && path.size() > 0;
   }
 
-  public void TransferFromCargo()
-  {
-    for(String materialKey : deliveryVehicle.Cargo.keySet())
-    {
-      if(!ProductionInputStorage.containsKey(materialKey))
-        ProductionInputStorage.put(materialKey, 0.0f);
+  public void transferFromCargo() {
+      final String cargoType = deliveryVehicle.getCargoType();
+      final Float cargoAmount = deliveryVehicle.getCargoAmount();
+      if (cargoType != null && cargoAmount != null) {
+        if(!ProductionInputStorage.containsKey(cargoType)) {
+            ProductionInputStorage.put(cargoType, 0.0f);
+        }
 
-      ProductionInputStorage.put(materialKey, ProductionInputStorage.get(materialKey) + deliveryVehicle.Cargo.get(materialKey));
-    }
-    deliveryVehicle.Cargo.clear();
-    ReadyForDeliverance = false;
+        ProductionInputStorage.put(cargoType, ProductionInputStorage.get(cargoType) + deliveryVehicle.getCargoAmount());
+        readyForDelivery.put(cargoType, false);
+      }
+      deliveryVehicle.setCargoAmount(0f);
   }
-  public void TransferToCargo()
-  {
-    for(String materialKey : ProducedGoods.keySet())
-    {
-      transportVehicle.AddCargo(materialKey, ProducedGoods.get(materialKey));
-    }
-    ProducedGoods.clear();
-    ReadyForTransportation = false;
-  }
-
-  public void TransferToStash()
-  {
-    for(String materialKey : transportVehicle.Cargo.keySet())
-    {
-      GameActivity.MyGameLogic.AddToStash(materialKey, transportVehicle.Cargo.get(materialKey));
-    }
-    transportVehicle.Cargo.clear();
+  
+  public void transferToCargo() {
+      final String cargoType = transportVehicle.getCargoType();
+      transportVehicle.setCargoAmount(ProducedGoods.get(cargoType));
+      ProducedGoods.remove(cargoType);
+      readyForTransportation.put(cargoType, false);
   }
 
-  public void TransferFromStash()
-  {
-    for(MaterialValue mv : ManufacturingTable.InputMaterials)
-    {
-      GameActivity.MyGameLogic.RemoveFromStash(mv.Material, mv.Value);
-      deliveryVehicle.AddCargo(mv.Material, mv.Value);
+  public void transferToStash() {
+    GameActivity.MyGameLogic.AddToStash(transportVehicle.getCargoType(), transportVehicle.getCargoAmount());
+    transportVehicle.setCargoAmount(0f);
+  }
+
+  public void transferFromStash() {
+    final String cargoType = deliveryVehicle.getCargoType();
+    
+    for(MaterialValue mv : ManufacturingTable.InputMaterials) {
+      if (cargoType.equals(mv.Material)) {
+          GameActivity.MyGameLogic.RemoveFromStash(mv.Material, mv.Value);
+          deliveryVehicle.setCargoAmount(mv.Value);
+          break;
+      }
     }
   }
-  public void RemoveTransportVehicle()
-  {
+  
+  public void RemoveTransportVehicle() {
     if(planetDescriptor.isActive()) {
       GameActivity.MyGameLogic.RemoveCargoTransport(transportVehicle.vehicle);
     }
     transportVehicle = null;
-    TransportationInProgress = false;
+    transportInProgress = false;
   }
 
-  public void RemoveDeliveryVehicle()
-  {
+  public void RemoveDeliveryVehicle() {
     if(planetDescriptor.isActive()) {
       GameActivity.MyGameLogic.RemoveCargoTransport(deliveryVehicle.vehicle);
     }
     deliveryVehicle = null;
-    DeliveranceInProgress = false;
+    deliveryInProgress = false;
   }
 
   public VehicleDescriptor getTransportVehicle(){ return transportVehicle; }
@@ -219,11 +214,11 @@ public class BuildingDescriptor
   public void setTransportVehicle(final VehicleDescriptor vehicleDescriptor){ this.transportVehicle = vehicleDescriptor; }
   public void setDeliveryVehicle(final VehicleDescriptor vehicleDescriptor){ this.deliveryVehicle = vehicleDescriptor; }
 
-  protected void CreateAnimationForTransport(List<PathNode> path)
+  protected void CreateAnimationForTransport(List<PathNode> path, final String cargoType)
   {
     final PathNode start = path.get(0);
-    Log.d("CreateAnimation",start.x + "//"+ start.y);
-    transportVehicle = new VehicleDescriptor(planetDescriptor.getPosition(start.x, start.y));
+    
+    transportVehicle = new VehicleDescriptor(planetDescriptor.getPosition(start.x, start.y), cargoType);
     if(planetDescriptor.isActive()){
       // when the planet is active, we want to show the vehicle
       transportVehicle.vehicle = GameActivity.MyGameLogic.AddCargoTransport(start.x, start.y);
@@ -252,16 +247,15 @@ public class BuildingDescriptor
     transportVehicle.AddToTaskQueue(new VehicleJob(VehicleJob.VehicleJobTypes.REMOVE_TRANSPORT, this));
   }
 
-  protected void CreateAnimationForDeliverance(List<PathNode> path)
-  {
+  protected void CreateAnimationForDeliverance(List<PathNode> path, final String cargoType) {
     PathNode start = path.get(0);
-    deliveryVehicle = new VehicleDescriptor(planetDescriptor.getPosition(start.x, start.y));
+    deliveryVehicle = new VehicleDescriptor(planetDescriptor.getPosition(start.x, start.y), cargoType);
     if(planetDescriptor.isActive()){
       // when the planet is active, we want to show the vehicle
       deliveryVehicle.vehicle = GameActivity.MyGameLogic.AddCargoTransport(start.x, start.y);
     }
 
-    deliveryVehicle.AddToTaskQueue(new VehicleJob(VehicleJob.VehicleJobTypes.LOAD_DELIVERANCE, this));
+    deliveryVehicle.AddToTaskQueue(new VehicleJob(VehicleJob.VehicleJobTypes.LOAD_DELIVERY, this));
     MyConstants.Direction directionFirst = Helpers.GetDirection(path.get(0), path.get(1));
     float horizontalRotation = 0.0f;
     switch(directionFirst)
@@ -274,7 +268,7 @@ public class BuildingDescriptor
     deliveryVehicle.AddToTaskQueue(new PositionAnimation(0, 0.0f, 0.0f, 0.0f, 0.0f, horizontalRotation, 0.0f));
 
     CreateAnimationForVehicle(deliveryVehicle, path);
-    deliveryVehicle.AddToTaskQueue(new VehicleJob(VehicleJob.VehicleJobTypes.UNLOAD_DELIVERANCE, this));
+    deliveryVehicle.AddToTaskQueue(new VehicleJob(VehicleJob.VehicleJobTypes.UNLOAD_DELIVERY, this));
 
     Collections.reverse(path);
     CreateAnimationForVehicle(deliveryVehicle, path);
@@ -461,25 +455,37 @@ public class BuildingDescriptor
   }
 
   public void Transport(float deltaMs) {
-    if(ReadyForTransportation)
-    {
-      if (!TransportationInProgress)
-      {
-        if ((PathToTransportCenter != null)) {
-          TransportationInProgress = true;
-          CreateAnimationForTransport(PathToTransportCenter);
-        }
+    for(final String key : readyForTransportation.keySet()) {
+      if(readyForTransportation.get(key) && !transportInProgress && PathToTransportCenter != null) {
+        CreateAnimationForTransport(PathToTransportCenter, key);
+        transportInProgress = true;
       }
     }
-
-    if(ReadyForDeliverance)
-    {
-      if(!DeliveranceInProgress)
-      {
-        if ((PathToTransportCenter != null)) {
-          DeliveranceInProgress = true;
-          CreateAnimationForDeliverance(PathToTransportCenter);
+    
+    float storageFillquota = 100;
+    if (!deliveryInProgress && PathToTransportCenter != null) {
+      String cargoType = null;
+      
+      for(final String key : readyForDelivery.keySet()) {
+        if (readyForDelivery.get(key) ) {
+          float current = ProductionInputStorage.containsKey(key) ? ProductionInputStorage.get(key) : 0f;
+          final float quota = current / storageCapacities.get(key);
+          if(quota < storageFillquota) {
+            cargoType = key;
+            storageFillquota = quota;
+          }
         }
+      }
+      
+      if(cargoType != null) {
+        CreateAnimationForDeliverance(PathToTransportCenter, cargoType);
+        deliveryInProgress = true;
+      }
+    }
+    
+    for(final String key : readyForDelivery.keySet()) {
+      if(readyForDelivery.get(key) && !deliveryInProgress && PathToTransportCenter != null) {
+        
       }
     }
 

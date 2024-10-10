@@ -12,8 +12,8 @@ public class VehicleJob extends VehicleTask
     UNKNOWN(0),
     LOAD_CARGO(1),
     UNLOAD_CARGO(2),
-    LOAD_DELIVERANCE(3),
-    UNLOAD_DELIVERANCE(4),
+    LOAD_DELIVERY(3),
+    UNLOAD_DELIVERY(4),
     REMOVE_TRANSPORT(5),
     REMOVE_DELIVERY(6);
 
